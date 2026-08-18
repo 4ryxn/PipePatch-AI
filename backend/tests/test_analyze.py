@@ -10,7 +10,8 @@ def upload(content: bytes, content_type: str = "image/jpeg") -> object:
     return client.post("/api/v1/analyze", files={"image": ("ignored-image", content, content_type)})
 
 
-def test_analyze_returns_a_clearly_marked_mock_response() -> None:
+def test_analyze_returns_a_clearly_marked_mock_response(monkeypatch: object) -> None:
+    getattr(monkeypatch, "setenv")("ANALYSIS_MODE", "mock")
     response = upload(b"\xff\xd8\xffmock-image")
 
     assert response.status_code == 200
@@ -19,6 +20,16 @@ def test_analyze_returns_a_clearly_marked_mock_response() -> None:
     assert body["supported_case"] is False
     assert body["nominal_size"] is None
     assert "Demo" in body["summary"]
+
+
+def test_gemini_mode_without_a_key_returns_a_safe_configuration_error(monkeypatch: object) -> None:
+    getattr(monkeypatch, "setenv")("ANALYSIS_MODE", "gemini")
+    getattr(monkeypatch, "delenv")("GEMINI_API_KEY", raising=False)
+
+    response = upload(b"\xff\xd8\xffmock-image")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Gemini analysis is not configured on this server."
 
 
 def test_analyze_rejects_a_missing_or_empty_image() -> None:

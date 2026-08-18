@@ -1,5 +1,5 @@
 export type AnalysisResponse = {
-  is_mock: true;
+  is_mock: boolean;
   supported_case: boolean;
   material: string | null;
   pipe_schedule: string | null;

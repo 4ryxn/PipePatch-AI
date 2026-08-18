@@ -11,10 +11,9 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
-class AnalysisResponse(BaseModel):
-    """A deliberately non-diagnostic response used to exercise the local upload flow."""
+class AnalysisFields(BaseModel):
+    """Observation-only fields shared by mock and live analysis results."""
 
-    is_mock: Literal[True] = True
     supported_case: bool
     material: str | None
     pipe_schedule: str | None
@@ -26,3 +25,13 @@ class AnalysisResponse(BaseModel):
     unknowns: list[str]
     safety_flags: list[str]
     next_action: str
+
+
+class AnalysisResponse(AnalysisFields):
+    """Mobile-facing analysis response. It never includes repair guidance."""
+
+    is_mock: bool
+
+
+class GeminiAnalysisResponse(AnalysisFields):
+    """The strict Structured Outputs schema accepted from the Gemini client."""

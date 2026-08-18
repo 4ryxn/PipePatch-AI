@@ -18,22 +18,22 @@ function inferredMimeType(image: SelectedImage): string | null {
 function isAnalysisResponse(value: unknown): value is AnalysisResponse {
   if (!value || typeof value !== "object") return false;
   const response = value as Partial<AnalysisResponse>;
-  return response.is_mock === true && typeof response.supported_case === "boolean" && typeof response.summary === "string" && Array.isArray(response.evidence) && Array.isArray(response.unknowns) && Array.isArray(response.safety_flags) && typeof response.next_action === "string";
+  return typeof response.is_mock === "boolean" && typeof response.supported_case === "boolean" && typeof response.summary === "string" && Array.isArray(response.evidence) && Array.isArray(response.unknowns) && Array.isArray(response.safety_flags) && typeof response.next_action === "string";
 }
 
 export function isRequestCancellation(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
-export async function requestDemoAnalysis(image: SelectedImage, signal: AbortSignal): Promise<AnalysisResponse> {
+export async function requestAnalysis(image: SelectedImage, signal: AbortSignal): Promise<AnalysisResponse> {
   const type = inferredMimeType(image);
   if (!type) throw new AnalysisRequestError("This photo has no supported upload type. Choose another photo.");
 
   const form = new FormData();
   form.append("image", { uri: image.localUri, name: "pipe-image", type } as unknown as Blob);
   const response = await fetch(`${apiBaseUrl}/api/v1/analyze`, { method: "POST", body: form, signal });
-  if (!response.ok) throw new AnalysisRequestError("The demo analysis could not be completed. Try again.");
+  if (!response.ok) throw new AnalysisRequestError("The analysis could not be completed. Try again.");
   const body: unknown = await response.json();
-  if (!isAnalysisResponse(body)) throw new AnalysisRequestError("The demo analysis returned an invalid response. Try again.");
+  if (!isAnalysisResponse(body)) throw new AnalysisRequestError("The analysis returned an invalid response. Try again.");
   return body;
 }

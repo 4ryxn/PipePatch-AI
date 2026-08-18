@@ -2,10 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile
 
-from app.analysis import validate_upload
+from app.analysis import ValidatedImage, validate_upload
+from app.config import get_analysis_settings
 from app.schemas import AnalysisResponse, HealthResponse
+from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
 
@@ -18,9 +20,24 @@ def health() -> HealthResponse:
 
 @app.post("/api/v1/analyze", response_model=AnalysisResponse, tags=["analysis"])
 async def analyze(image: Annotated[UploadFile, File(description="One pipe photo")]) -> AnalysisResponse:
-    """Validate one image in memory and return fixed demo observations only."""
-    await validate_upload(image)
+    """Validate one image and run the configured non-persistent analysis mode."""
+    validated_image = await validate_upload(image)
+    try:
+        settings = get_analysis_settings()
+    except ValueError as error:
+        raise HTTPException(status_code=503, detail="Analysis mode is not configured correctly.") from error
+    if settings.mode == "gemini":
+        try:
+            return await analyze_with_gemini(validated_image, settings)
+        except GeminiServiceError as error:
+            raise HTTPException(status_code=error.status_code, detail=error.message) from error
+    return mock_analysis(validated_image)
+
+
+def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:
+    """Return fixed offline observations without reading or retaining image details."""
     return AnalysisResponse(
+        is_mock=True,
         supported_case=False,
         material="PVC (demo observation)",
         pipe_schedule="Schedule 40 (demo observation)",
