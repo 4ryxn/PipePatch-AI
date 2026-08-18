@@ -6,6 +6,10 @@ The project consists of an Expo SDK 54 Android client and a FastAPI backend. The
 
 Features include local photo preparation, observation-only Gemini analysis, deterministic damage/repair gates, marker calibration, assisted measurement, generic guarded guidance/parts, optional supplier discovery, and opt-in text-only history. It remains limited to the documented outdoor Schedule-40 PVC clean-cut case. See the final [project report](docs/final-project-report.md) and [demo script](docs/demo-script.md).
 
+## Browser frontend
+
+`web/` is a separate React + TypeScript + Vite browser frontend for final demonstrations. Copy `web/.env.example` to a local `.env` and set only `VITE_API_BASE_URL`; public Vite variables are visible to browser users and must never contain API keys, database URLs, or JWT secrets. Deploy it to Vercel as a separate static project with `web` as the root directory, then add that exact Vercel URL to backend `ALLOWED_ORIGINS`. Run `cd web && npm ci && npm run typecheck && npm test && npm run build`.
+
 PipePatch AI is a narrowly scoped mobile app for preparing a pipe photo, uploading it once after confirmation, and displaying observation-only analysis. The backend defaults to offline mock mode and can opt into backend-only Gemini vision analysis. Live results may proceed to explicit safety confirmations; deterministic Python rules can then authorize a generic parts checklist for one narrow case. It has no database, authentication, numbered repair steps, brands, prices, or supplier features.
 
 ## Repository layout

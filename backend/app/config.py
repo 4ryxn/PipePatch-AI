@@ -52,6 +52,15 @@ def validate_production_environment() -> None:
         raise ValueError("Wildcard browser origins are not allowed in production.")
 
 
+def get_allowed_origins() -> list[str]:
+    """Return explicit browser origins only; native clients do not need CORS."""
+    raw = os.getenv("ALLOWED_ORIGINS", "")
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    if "*" in origins:
+        raise ValueError("Wildcard browser origins are not allowed.")
+    return origins
+
+
 def get_analysis_settings() -> AnalysisSettings:
     """Read non-persisted process configuration without exposing secrets."""
     raw_mode = os.getenv("ANALYSIS_MODE", "mock").lower()

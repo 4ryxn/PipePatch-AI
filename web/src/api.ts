@@ -1,0 +1,4 @@
+export const baseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+export type Analysis={is_mock:boolean;supported_case:boolean;damage_category?:string;confidence:number;summary:string;evidence:string[];unknowns:string[];safety_flags:string[];next_action:string;[key:string]:unknown};
+export async function analyze(file:File, signal?:AbortSignal):Promise<Analysis>{const form=new FormData();form.append("image",file,file.name);const res=await fetch(`${baseUrl}/api/v1/analyze`,{method:"POST",body:form,signal});if(!res.ok)throw new Error("Analysis unavailable");return res.json() as Promise<Analysis>}
+export async function api<T>(path:string, payload:unknown, token?:string):Promise<T>{const res=await fetch(`${baseUrl}${path}`,{method:"POST",headers:{"Content-Type":"application/json",...(token?{Authorization:`Bearer ${token}`}:{})},body:JSON.stringify(payload)});if(!res.ok)throw new Error("Request unavailable");return res.json() as Promise<T>}

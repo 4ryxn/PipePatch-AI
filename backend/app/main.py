@@ -4,6 +4,7 @@ import json
 from typing import Annotated, Generator
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,7 +22,7 @@ from app.auth import (
     successful_login,
     verify_password,
 )
-from app.config import get_analysis_settings, get_auth_settings, get_supplier_settings, validate_production_environment
+from app.config import get_allowed_origins, get_analysis_settings, get_auth_settings, get_supplier_settings, validate_production_environment
 from app.database import RepairHistory, User, make_session_factory
 from app.repair_rules import assess_repair
 from app.repair_guidance import create_guidance
@@ -52,6 +53,9 @@ from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
 validate_production_environment()
+_allowed_origins = get_allowed_origins()
+if _allowed_origins:
+    app.add_middleware(CORSMiddleware, allow_origins=_allowed_origins, allow_credentials=False, allow_methods=["GET", "POST", "DELETE"], allow_headers=["Authorization", "Content-Type"])
 _supplier_services: dict[object, SupplierSearchService] = {}
 _bearer = HTTPBearer(auto_error=False)
 _session_factory: sessionmaker[Session] | None = None
