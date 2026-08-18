@@ -15,7 +15,7 @@ PipePatch AI is a narrowly scoped mobile app for preparing a pipe photo, uploadi
 
 ## Prerequisites
 
-- Python 3.11 or later
+- Python 3.12 or later
 - Node.js 20 or later and npm
 - Expo Go on a physical device, or an Android/iOS simulator, for mobile development
 
