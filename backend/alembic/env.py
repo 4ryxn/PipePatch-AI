@@ -1,10 +1,10 @@
 from alembic import context
 from app.config import get_auth_settings
-from app.database import Base
+from app.database import Base, normalize_database_url
 
 config = context.config
 target_metadata = Base.metadata
-config.set_main_option("sqlalchemy.url", get_auth_settings().database_url)
+config.set_main_option("sqlalchemy.url", normalize_database_url(get_auth_settings().database_url))
 
 
 def run_migrations_offline() -> None:

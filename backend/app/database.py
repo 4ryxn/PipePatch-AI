@@ -40,7 +40,15 @@ class RepairHistory(Base):
     owner: Mapped[User] = relationship(back_populates="history")
 
 
+def normalize_database_url(url: str) -> str:
+    """Use SQLAlchemy's Psycopg 3 dialect for ordinary PostgreSQL/Neon URLs."""
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    return url
+
+
 def make_session_factory(url: str) -> sessionmaker[Session]:
+    url = normalize_database_url(url)
     engine = create_engine(
         url, connect_args={"check_same_thread": False} if url.startswith("sqlite") else {}
     )
