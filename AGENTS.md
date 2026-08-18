@@ -12,7 +12,7 @@
 - Never commit `.env` files, API keys, tokens, database credentials, or other secrets.
 - Never put an OpenAI API key in `mobile/`, including Expo public environment variables. `EXPO_PUBLIC_*` values are visible to app users.
 - Use `.env.example` files only for non-secret configuration or blank, clearly documented placeholders.
-- Phase 2 photos remain on-device: do not upload, log, retain, or request EXIF, location, or base64 image data. Original library photos must never be deleted; remove app-created temporary normalized copies when practical.
+- The approved mock-upload milestone may upload the confirmed active image only to this backend. Do not log, retain, or persist image data; do not request EXIF, location, or base64 image data. Original library photos must never be deleted; remove app-created temporary normalized copies when practical.
 - Camera and library access must be requested only at the user action that needs it. Cancellation is a normal navigation outcome, not an error.
 
 ## Product safety boundary
@@ -21,4 +21,4 @@ The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts
 
 ## Current exclusions
 
-Do not add image analysis, OpenAI integration, backend image upload, database functionality, repair recommendations, authentication, cloud image storage, or data persistence in this phase.
+Do not add real image analysis, OpenAI integration, database functionality, repair recommendations, authentication, cloud image storage, or data persistence in this phase.

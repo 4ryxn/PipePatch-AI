@@ -1,0 +1,47 @@
+"""Ephemeral validation for the mock image-analysis endpoint."""
+
+from fastapi import HTTPException, UploadFile
+
+MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+READ_CHUNK_BYTES = 64 * 1024
+
+_JPEG = b"\xff\xd8\xff"
+_PNG = b"\x89PNG\r\n\x1a\n"
+_WEBP_RIFF = b"RIFF"
+_WEBP_WEBP = b"WEBP"
+_SUPPORTED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def signature_content_type(header: bytes) -> str | None:
+    """Identify one supported format from its non-sensitive leading bytes."""
+    if header.startswith(_JPEG):
+        return "image/jpeg"
+    if header.startswith(_PNG):
+        return "image/png"
+    if len(header) >= 12 and header.startswith(_WEBP_RIFF) and header[8:12] == _WEBP_WEBP:
+        return "image/webp"
+    return None
+
+
+async def validate_upload(image: UploadFile) -> None:
+    """Consume and validate an upload without retaining its content or filename."""
+    try:
+        declared_content_type = image.content_type
+        if declared_content_type not in _SUPPORTED_CONTENT_TYPES:
+            raise HTTPException(status_code=415, detail="Use a JPG, PNG, or WebP image.")
+
+        header = await image.read(12)
+        if not header:
+            raise HTTPException(status_code=422, detail="The uploaded image is empty.")
+
+        detected_content_type = signature_content_type(header)
+        if detected_content_type is None or detected_content_type != declared_content_type:
+            raise HTTPException(status_code=415, detail="The image format does not match its declared type.")
+
+        total_bytes = len(header)
+        while chunk := await image.read(READ_CHUNK_BYTES):
+            total_bytes += len(chunk)
+            if total_bytes > MAX_UPLOAD_BYTES:
+                raise HTTPException(status_code=413, detail="The uploaded image is too large.")
+    finally:
+        await image.close()
