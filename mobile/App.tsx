@@ -1,85 +1,54 @@
+import { Camera, CameraView } from "expo-camera";
+import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { useEffect, useReducer, useRef, useState } from "react";
+import { ActivityIndicator, Image, Linking, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+
+import { AppButton } from "./src/components/AppButton";
+import { Screen } from "./src/components/Screen";
+import { CameraCaptureScreen } from "./src/screens/CameraCaptureScreen";
+import { candidateFromAsset, cleanupSelectedImage, normalizeImage } from "./src/services/photoService";
+import { colors } from "./src/theme";
+import type { ImageCandidate, SelectedImage } from "./src/types/image";
+import { validateImage } from "./src/utils/imageValidation";
+import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
+import { permissionState, shouldOfferSettings, type PermissionViewState } from "./src/utils/captureController";
+import { reviewImageHeight } from "./src/utils/responsive";
 
 type HealthState = "checking" | "healthy" | "unavailable";
-
-type HealthResponse = {
-  status: "ok";
-};
-
+type PermissionState = PermissionViewState;
+type HealthResponse = { status: "ok" };
 const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 export default function App(): React.JSX.Element {
   const [healthState, setHealthState] = useState<HealthState>("checking");
-
-  useEffect(() => {
-    const checkHealth = async (): Promise<void> => {
-      try {
-        const response = await fetch(`${apiBaseUrl}/health`);
-        const body = (await response.json()) as HealthResponse;
-        setHealthState(response.ok && body.status === "ok" ? "healthy" : "unavailable");
-      } catch {
-        setHealthState("unavailable");
-      }
-    };
-
-    void checkHealth();
-  }, []);
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>PipePatch AI</Text>
-      <Text style={styles.subtitle}>Backend health</Text>
-      {healthState === "checking" ? (
-        <ActivityIndicator accessibilityLabel="Checking backend health" size="large" />
-      ) : (
-        <Text
-          accessibilityLiveRegion="polite"
-          style={healthState === "healthy" ? styles.healthy : styles.unavailable}
-        >
-          {healthState === "healthy" ? "Connected" : "Unavailable"}
-        </Text>
-      )}
-      <Text style={styles.endpoint}>{apiBaseUrl}</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+  const [flow, dispatch] = useReducer(photoFlowReducer, initialPhotoFlow);
+  const [error, setError] = useState<string | null>(null);
+  const [permission, setPermission] = useState<PermissionState>("idle");
+  const [preparing, setPreparing] = useState(false); const [requesting, setRequesting] = useState(false); const operation = useRef(0); const mounted = useRef(true); const imageRef = useRef<SelectedImage | null>(null);
+  useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
+  useEffect(() => { const controller = new AbortController(); void checkHealth(setHealthState, controller.signal, mounted); return () => { mounted.current = false; controller.abort(); void cleanupSelectedImage(imageRef.current); }; }, []);
+  const invalidate = (): number => ++operation.current;
+  const prepare = async (candidate: ImageCandidate): Promise<void> => { const id = invalidate(); setError(null); const result = validateImage(candidate); if (!result.valid) { if (mounted.current) setError(result.message); return; } dispatch({ type: "BEGIN_PREPARE", operationId: id }); setPreparing(true); try { const image = await normalizeImage(candidate); if (mounted.current && operation.current === id) dispatch({ type: "IMAGE_READY", operationId: id, image }); else await cleanupSelectedImage(image); } catch { if (mounted.current && operation.current === id) setError("This photo could not be prepared on this device. Choose or capture another image."); } finally { if (mounted.current && operation.current === id) setPreparing(false); } };
+  const openCamera = async (): Promise<void> => { if (requesting || preparing) return; const id = operation.current; setRequesting(true); setError(null); setPermission("idle"); try { if (!(await CameraView.isAvailableAsync())) { if (operation.current === id) setPermission("unavailable"); return; } const response = await Camera.requestCameraPermissionsAsync(); if (operation.current !== id) return; if (response.granted) dispatch({ type: "OPEN_CAMERA" }); else setPermission(permissionState("camera", response)); } finally { if (mounted.current && operation.current === id) setRequesting(false); } };
+  const chooseLibrary = async (): Promise<void> => { if (requesting || preparing) return; const id = operation.current; setRequesting(true); setError(null); setPermission("idle"); try { const response = await ImagePicker.requestMediaLibraryPermissionsAsync(); if (operation.current !== id) return; if (!response.granted) { setPermission(permissionState("library", response)); return; } const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: false, base64: false, exif: false, quality: 1 }); if (operation.current === id && !picked.canceled && picked.assets[0]) await prepare(candidateFromAsset(picked.assets[0], "library")); } catch { if (mounted.current && operation.current === id) setPermission("unavailable"); } finally { if (mounted.current && operation.current === id) setRequesting(false); } };
+  const replace = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "REPLACE", operationId: id }); };
+  if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
+  return <SafeAreaProvider><Screen><StatusBar style="dark" />
+    {flow.screen === "home" && <Home healthState={healthState} onStart={() => dispatch({ type: "START" })} />}
+    {flow.screen === "guidance" && <Guidance onContinue={() => dispatch({ type: "SHOW_SOURCE" })} />}
+    {(flow.screen === "source" || flow.screen === "preparing") && <Source error={error} permission={permission} loading={preparing || requesting} onCamera={() => void openCamera()} onLibrary={() => void chooseLibrary()} onSettings={() => void Linking.openSettings()} onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} />}
+    {flow.screen === "review" && flow.image && <Review image={flow.image} onReplace={replace} onConfirm={() => dispatch({ type: "CONFIRM" })} />}
+    {flow.screen === "ready" && <Ready onRestart={() => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "RESET", operationId: id }); }} />}
+  </Screen></SafeAreaProvider>;
 }
 
-const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    backgroundColor: "#f7f9fb",
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  title: {
-    color: "#12304a",
-    fontSize: 32,
-    fontWeight: "700",
-  },
-  subtitle: {
-    color: "#4b6275",
-    fontSize: 18,
-    marginBottom: 16,
-    marginTop: 8,
-  },
-  healthy: {
-    color: "#147a42",
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  unavailable: {
-    color: "#a22b25",
-    fontSize: 20,
-    fontWeight: "600",
-  },
-  endpoint: {
-    color: "#4b6275",
-    fontSize: 13,
-    marginTop: 16,
-    textAlign: "center",
-  },
-});
+function Home({ healthState, onStart }: { healthState: HealthState; onStart: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>LOCAL PHOTO PREP</Text><Text style={s.title}>PipePatch AI</Text><Text style={s.body}>Prepare one clear pipe-damage photo for a future safety-gated assessment. No analysis happens in this phase and photos stay on this device.</Text><View style={s.card}><Text style={s.cardTitle}>Backend health</Text>{healthState === "checking" ? <ActivityIndicator accessibilityLabel="Checking backend health" color={colors.green} /> : <Text accessibilityLiveRegion="polite" style={healthState === "healthy" ? s.ok : s.warning}>{healthState === "healthy" ? "Connected" : "Unavailable — photo preparation still works locally"}</Text>}</View><View style={s.spacer} /><AppButton label="Prepare a pipe photo" onPress={onStart} /></>; }
+function Guidance({ onContinue }: { onContinue: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>PHOTO GUIDANCE</Text><Text style={s.title}>Frame the repair area clearly</Text><Text style={s.body}>This guidance does not detect the pipe, damage, lighting, or calibration marker.</Text><View style={s.card}>{["Both damaged pipe ends", "Visible pipe markings when possible", "The complete ArUco calibration marker", "Adequate surrounding context", "Good lighting", "A steady, unobstructed image"].map((item) => <Text key={item} style={s.list}>• {item}</Text>)}</View><View style={s.spacer} /><AppButton label="Choose photo source" onPress={onContinue} /></>; }
+function Source({ error, permission, loading, onCamera, onLibrary, onSettings, onBack }: { error: string | null; permission: PermissionState; loading: boolean; onCamera: () => void; onLibrary: () => void; onSettings: () => void; onBack: () => void }): React.JSX.Element { const blocked = permission.startsWith("blocked"); const resource = permission.includes("camera") ? "Camera" : "Photo library"; return <><Text style={s.eyebrow}>PHOTO SOURCE</Text><Text style={s.title}>Take or select a photo</Text><Text style={s.body}>PipePatch asks only for access needed to capture or choose this local photo.</Text>{loading && <Loading />}{permission !== "idle" && <View style={s.errorCard}><Text style={s.errorTitle}>{permission === "unavailable" ? "Photo access is unavailable" : `${resource} permission was not granted`}</Text><Text style={s.body}>{blocked ? `Allow ${resource.toLowerCase()} access in device settings, then return here.` : "You can try again or choose the other source."}</Text>{shouldOfferSettings(permission) && <AppButton label="Open device settings" onPress={onSettings} />}</View>}{error && <View style={s.errorCard}><Text style={s.errorTitle}>Choose another photo</Text><Text style={s.body}>{error}</Text></View>}<View style={s.spacer} /><AppButton label="Use rear camera" disabled={loading} onPress={onCamera} /><AppButton label="Choose from photo library" variant="secondary" disabled={loading} onPress={onLibrary} /><AppButton label="Back to guidance" variant="secondary" disabled={loading} onPress={onBack} /></>; }
+function Review({ image, onReplace, onConfirm }: { image: SelectedImage; onReplace: () => void; onConfirm: () => void }): React.JSX.Element { const viewport = useWindowDimensions(); return <><Text style={s.eyebrow}>PHOTO REVIEW</Text><Text style={s.title}>Review your local photo</Text><Image accessibilityLabel="Selected pipe-damage photo" source={{ uri: image.localUri }} style={[s.preview, { height: reviewImageHeight(viewport) }]} resizeMode="contain" /><View style={s.card}><Text style={s.cardTitle}>{image.normalizedStatus === "normalized" ? "Prepared for later analysis" : "Ready for later analysis"}</Text><Text style={s.body}>{image.width} × {image.height} pixels{image.fileSize !== null ? ` • ${Math.round(image.fileSize / 1024)} KB` : " • file size unavailable"}</Text><Text style={s.caption}>No image has been uploaded or analyzed.</Text></View><View style={s.spacer} /><AppButton label="Confirm photo" onPress={onConfirm} /><AppButton label="Retake or choose another" variant="secondary" onPress={onReplace} /></>; }
+function Ready({ onRestart }: { onRestart: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>LOCAL STATE CONFIRMED</Text><Text style={s.title}>Ready for future analysis</Text><View style={s.card}><Text style={s.cardTitle}>Photo kept on this device</Text><Text style={s.body}>The selected photo is in a typed ready-for-analysis state. Phase 2 does not upload it, inspect it, or provide diagnosis or repair guidance.</Text></View><View style={s.spacer} /><AppButton label="Prepare another photo" onPress={onRestart} /></>; }
+function Loading(): React.JSX.Element { return <View style={s.loading}><ActivityIndicator color={colors.green} /><Text style={s.body}>Preparing your photo locally…</Text></View>; }
+async function checkHealth(setHealth: (state: HealthState) => void, signal: AbortSignal, mounted: { current: boolean }): Promise<void> { try { const response = await fetch(`${apiBaseUrl}/health`, { signal }); const body = (await response.json()) as HealthResponse; if (mounted.current) setHealth(response.ok && body.status === "ok" ? "healthy" : "unavailable"); } catch { if (mounted.current && !signal.aborted) setHealth("unavailable"); } }
+const s = StyleSheet.create({ eyebrow: { color: colors.limeDark, fontSize: 13, fontWeight: "800", letterSpacing: 1.2 }, title: { color: colors.green, flexShrink: 1, fontSize: 34, fontWeight: "800", lineHeight: 40 }, body: { color: colors.ink, flexShrink: 1, fontSize: 16, lineHeight: 23 }, card: { backgroundColor: colors.white, borderColor: colors.creamDark, borderRadius: 16, borderWidth: 1, gap: 8, padding: 18 }, cardTitle: { color: colors.green, fontSize: 18, fontWeight: "800" }, list: { color: colors.ink, fontSize: 16, lineHeight: 27 }, ok: { color: colors.greenLight, fontWeight: "700" }, warning: { color: colors.danger, fontWeight: "700" }, errorCard: { backgroundColor: "#F9E5E0", borderColor: colors.danger, borderRadius: 14, borderWidth: 1, gap: 10, padding: 16 }, errorTitle: { color: colors.danger, fontSize: 17, fontWeight: "800" }, preview: { backgroundColor: colors.creamDark, borderRadius: 16, width: "100%" }, caption: { color: colors.muted, fontSize: 13, lineHeight: 19 }, loading: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 10 }, spacer: { flex: 1, minHeight: 12 } });
