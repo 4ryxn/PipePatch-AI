@@ -30,6 +30,7 @@ from app.suppliers import SupplierSearchService
 from app.schemas import (
     AnalysisResponse,
     CalibrationResponse,
+    DamageCategory,
     HealthResponse,
     ImagePoint,
     MeasurementResponse,
@@ -162,6 +163,7 @@ def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:
         pipe_schedule="Schedule 40 (demo observation)",
         nominal_size=None,
         damage_type="clean transverse cut (demo observation)",
+        damage_category=DamageCategory.UNKNOWN_OR_UNSUPPORTED,
         confidence=0.0,
         summary="Demo response only. This upload has not received real image analysis.",
         evidence=["The backend accepted one supported image format."],

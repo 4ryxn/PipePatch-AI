@@ -122,6 +122,12 @@ This integration follows the [Nominatim usage policy](https://operations.osmfoun
 
 Accounts are disabled by default and are never required for capture, analysis, measurement, repair guidance, parts, or supplier discovery. When enabled, create `backend/.env` from `.env.example`, choose SQLite locally or PostgreSQL for deployment, and set a strong `JWT_SECRET_KEY` (at least 32 characters). Saved history is explicit and text-only; images and location/provider data are never stored. See [privacy and auth](docs/privacy-and-auth.md).
 
+## Damage taxonomy and offline evaluation
+
+The observation taxonomy is version-controlled: clean transverse cut, crack/split, puncture/hole, active leak/wet soil, broken fitting, valve/manifold damage, sprinkler-head damage, no visible damage, and unknown/unsupported. Only `clean_transverse_cut` can proceed to the existing deterministic clean-cut gates. All other categories stop guidance, parts, and supplier discovery.
+
+Validate the committed synthetic manifest with `cd backend && .venv/bin/python -c "from app.dataset import validate_manifest; print(validate_manifest('../data/example-manifest.csv'))"`. Evaluate recorded predictions only—never images or Gemini—with `cd backend && .venv/bin/python -c "from app.evaluation import evaluate; print(evaluate('../data/example-manifest.csv', '../data/example-predictions.csv'))"`. See [dataset card](docs/dataset-card.md); no performance claim exists until a real consented, reviewed dataset is evaluated.
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh

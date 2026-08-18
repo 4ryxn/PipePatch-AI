@@ -20,6 +20,8 @@
 
 The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Gemini supplies observations only; deterministic Python rules, backed by explicit user confirmations, exclusively authorize or refuse the generic parts checklist. Any unsupported, ambiguous, or low-confidence case must stop and decline guidance. Do not broaden this scope without explicit product approval.
 
+Damage taxonomy is observation-only. `clean_transverse_cut` is the sole taxonomy ID that may reach the existing deterministic clean-cut gates; every other taxonomy ID must fail closed with no repair, parts, price, or supplier path. Real datasets require consent, de-identification, annotation review, and storage outside Git unless expressly approved. Offline evaluation consumes recorded labels/predictions only and never calls a model or opens/uploads images.
+
 The calibration endpoint is deterministic OpenCV only. Its ArUco marker result establishes an estimated reference scale, never an automatic pipe diameter, cut-gap, nominal-size, or repair-eligibility measurement. Keep its image handling in memory only and fail closed to a retake for uncertain marker detection or quality.
 
 Assisted measurement may convert only user-selected image points with a server-re-detected marker scale. Treat the result as an estimate and advisory context; it must never preselect or authorize repair-confirmation answers. Deterministic repair guidance may be shown only after every assessment and measurement gate passes; product labels and local requirements always override app wording.

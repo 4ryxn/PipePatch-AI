@@ -40,6 +40,7 @@ import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
 import { reviewImageHeight } from "./src/utils/responsive";
 import { guidanceBlock } from "./src/utils/guidancePolicy";
 import { supplierBlock } from "./src/utils/supplierPolicy";
+import { mayContinueToSafety } from "./src/utils/taxonomyPolicy";
 
 type HealthState = "checking" | "healthy" | "unavailable";
 type HealthResponse = { status: "ok" };
@@ -185,7 +186,7 @@ export default function App(): React.JSX.Element {
     {flow.screen === "review" && flow.image && <Review image={flow.image} calibration={flow.purpose === "calibration"} onReplace={replace} onConfirm={() => { dispatch({ type: "CONFIRM" }); if (flow.purpose === "calibration") startCalibration(false); else startAnalysis(false); }} />}
     {(flow.screen === "ready" || flow.screen === "uploading") && <Uploading onCancel={cancelAnalysis} />}
     {flow.screen === "analysis_error" && <AnalysisError onRetry={() => startAnalysis(true)} onReplace={replace} />}
-    {flow.screen === "result" && flow.analysis && <AnalysisResultScreen analysis={flow.analysis} onStartOver={restart} onContinue={flow.analysis.is_mock ? undefined : () => dispatch({ type: "OPEN_CONFIRMATIONS" })} onCalibration={() => dispatch({ type: "OPEN_CALIBRATION_GUIDE" })} />}
+    {flow.screen === "result" && flow.analysis && <AnalysisResultScreen analysis={flow.analysis} onStartOver={restart} onContinue={mayContinueToSafety(flow.analysis) ? () => dispatch({ type: "OPEN_CONFIRMATIONS" }) : undefined} onCalibration={() => dispatch({ type: "OPEN_CALIBRATION_GUIDE" })} />}
     {flow.screen === "calibration_guide" && <CalibrationGuideScreen onCapture={beginCalibrationCapture} onBack={() => dispatch({ type: "RETURN_TO_RESULT" })} />}
     {flow.screen === "calibrating" && <AssessmentLoading onCancel={cancelCalibration} />}
     {flow.screen === "calibration_error" && <AssessmentError onRetry={() => startCalibration(true)} onRestart={replace} />}

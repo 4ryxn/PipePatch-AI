@@ -12,6 +12,23 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class DamageCategory(str, Enum):
+    CLEAN_TRANSVERSE_CUT = "clean_transverse_cut"
+    CRACK_OR_SPLIT = "crack_or_split"
+    PUNCTURE_OR_HOLE = "puncture_or_hole"
+    ACTIVE_LEAK_OR_WET_SOIL = "active_leak_or_wet_soil"
+    SEPARATED_OR_BROKEN_FITTING = "separated_or_broken_fitting"
+    VALVE_OR_MANIFOLD_DAMAGE = "valve_or_manifold_damage"
+    SPRINKLER_HEAD_DAMAGE = "sprinkler_head_damage"
+    NO_VISIBLE_DAMAGE = "no_visible_damage"
+    UNKNOWN_OR_UNSUPPORTED = "unknown_or_unsupported"
+
+
+DAMAGE_CATEGORY_LABELS: dict[DamageCategory, str] = {
+    category: category.value.replace("_", " ").title() for category in DamageCategory
+}
+
+
 class AnalysisFields(BaseModel):
     """Observation-only fields shared by mock and live analysis results."""
 
@@ -20,6 +37,7 @@ class AnalysisFields(BaseModel):
     pipe_schedule: str | None
     nominal_size: str | None
     damage_type: str | None
+    damage_category: DamageCategory = DamageCategory.CLEAN_TRANSVERSE_CUT
     confidence: float
     summary: str
     evidence: list[str]

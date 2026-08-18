@@ -5,6 +5,7 @@ from typing import Final, Literal
 from app.schemas import (
     AnalysisResponse,
     Confirmation,
+    DamageCategory,
     LineType,
     RepairAssessmentResponse,
     RepairConfirmations,
@@ -35,6 +36,10 @@ def assess_repair(
         )
     if not analysis.supported_case:
         needs_information.append("The live AI result did not identify a supported case.")
+    if analysis.damage_category is not DamageCategory.CLEAN_TRANSVERSE_CUT:
+        needs_information.append(
+            f"DIY repair guidance is not available for this damage type yet: {analysis.damage_category.value}."
+        )
     if analysis.confidence < minimum_confidence:
         needs_information.append(
             f"The live AI confidence is below the required {minimum_confidence:.2f} threshold."

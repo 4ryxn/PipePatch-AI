@@ -1,0 +1,4 @@
+case_id,image_path,split,damage_category,material_context,annotation_confidence,reviewer_status,consent_status,schema_version
+case-a,synthetic/clean.png,train,clean_transverse_cut,PVC,1.0,reviewed,synthetic,1
+case-b,synthetic/crack.png,validation,crack_or_split,PVC,1.0,reviewed,synthetic,1
+case-c,synthetic/unknown.png,test,unknown_or_unsupported,,1.0,reviewed,synthetic,1
