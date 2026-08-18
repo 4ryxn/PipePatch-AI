@@ -1,13 +1,28 @@
 """FastAPI application entry point."""
 
-from typing import Annotated
+import json
+from typing import Annotated, Generator
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.analysis import ValidatedImage, validate_upload
 from app.calibration import detect_calibration
 from app.measurements import measure_image
-from app.config import get_analysis_settings, get_supplier_settings
+from app.auth import (
+    allow_login,
+    create_token,
+    decode_token,
+    normalize_email,
+    password_hash,
+    successful_login,
+    verify_password,
+)
+from app.config import get_analysis_settings, get_auth_settings, get_supplier_settings
+from app.database import RepairHistory, User, make_session_factory
 from app.repair_rules import assess_repair
 from app.repair_guidance import create_guidance
 from app.parts_catalog import parts_estimate
@@ -26,11 +41,18 @@ from app.schemas import (
     RepairGuidanceResponse,
     SupplierSearchRequest,
     SupplierSearchResponse,
+    AccountResponse,
+    Credentials,
+    RepairHistoryCreate,
+    RepairHistoryResponse,
+    TokenResponse,
 )
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
 _supplier_services: dict[object, SupplierSearchService] = {}
+_bearer = HTTPBearer(auto_error=False)
+_session_factory: sessionmaker[Session] | None = None
 
 
 def supplier_service() -> SupplierSearchService:
@@ -41,6 +63,38 @@ def supplier_service() -> SupplierSearchService:
         service = SupplierSearchService(settings)
         _supplier_services[settings] = service
     return service
+
+
+def auth_session_factory() -> sessionmaker[Session]:
+    global _session_factory
+    settings = get_auth_settings()
+    if not settings.enabled:
+        raise HTTPException(503, "Accounts and repair history are disabled in this environment.")
+    if _session_factory is None:
+        _session_factory = make_session_factory(settings.database_url)
+    return _session_factory
+
+
+def current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+) -> Generator[User, None, None]:
+    settings = get_auth_settings()
+    factory = auth_session_factory()
+    user_id = decode_token(credentials.credentials, settings) if credentials else None
+    if not user_id:
+        raise HTTPException(401, "Authentication is required.")
+    session = factory()
+    try:
+        user = session.get(User, user_id)
+        if user is None:
+            raise HTTPException(401, "Authentication is required.")
+        yield user
+    finally:
+        session.close()
+
+
+def account_response(user: User) -> AccountResponse:
+    return AccountResponse(id=user.id, email=user.email, created_at=user.created_at.isoformat())
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
@@ -148,3 +202,140 @@ async def search_suppliers(request: SupplierSearchRequest) -> SupplierSearchResp
     """User-triggered general-area discovery; never persist a location or result."""
     settings = get_analysis_settings()
     return await supplier_service().search(request, settings.repair_minimum_confidence)
+
+
+@app.post("/api/v1/auth/register", response_model=TokenResponse, tags=["auth"])
+def register(credentials: Credentials) -> TokenResponse:
+    settings = get_auth_settings()
+    factory = auth_session_factory()
+    email = normalize_email(credentials.email)
+    if "@" not in email:
+        raise HTTPException(422, "Enter a valid email address.")
+    session = factory()
+    try:
+        user = User(email=email, password_hash=password_hash.hash(credentials.password))
+        session.add(user)
+        session.commit()
+        return TokenResponse(access_token=create_token(user.id, settings))
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(409, "An account could not be created with those details.") from error
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/auth/login", response_model=TokenResponse, tags=["auth"])
+def login(credentials: Credentials) -> TokenResponse:
+    settings = get_auth_settings()
+    factory = auth_session_factory()
+    email = normalize_email(credentials.email)
+    if not allow_login(email):
+        raise HTTPException(429, "Unable to sign in with those credentials. Try again later.")
+    session = factory()
+    try:
+        user = session.scalar(select(User).where(User.email == email))
+        if user is None or not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(401, "Unable to sign in with those credentials.")
+        successful_login(email)
+        return TokenResponse(access_token=create_token(user.id, settings))
+    finally:
+        session.close()
+
+
+@app.get("/api/v1/auth/me", response_model=AccountResponse, tags=["auth"])
+def me(user: Annotated[User, Depends(current_user)]) -> AccountResponse:
+    return account_response(user)
+
+
+@app.delete("/api/v1/auth/me", status_code=204, tags=["auth"])
+def delete_account(user: Annotated[User, Depends(current_user)]) -> None:
+    factory = auth_session_factory()
+    session = factory()
+    try:
+        stored = session.get(User, user.id)
+        if stored:
+            session.delete(stored)
+            session.commit()
+    finally:
+        session.close()
+
+
+@app.post("/api/v1/history", response_model=RepairHistoryResponse, tags=["history"])
+def save_history(
+    request: RepairHistoryCreate, user: Annotated[User, Depends(current_user)]
+) -> RepairHistoryResponse:
+    factory = auth_session_factory()
+    session = factory()
+    try:
+        item = RepairHistory(
+            owner_id=user.id,
+            title=request.title.strip(),
+            summary_json=request.summary.model_dump_json(),
+        )
+        session.add(item)
+        session.commit()
+        return RepairHistoryResponse(
+            id=item.id,
+            title=item.title,
+            created_at=item.created_at.isoformat(),
+            summary=request.summary,
+        )
+    finally:
+        session.close()
+
+
+def _history_response(item: RepairHistory) -> RepairHistoryResponse:
+    from app.schemas import RepairHistorySummary
+
+    return RepairHistoryResponse(
+        id=item.id,
+        title=item.title,
+        created_at=item.created_at.isoformat(),
+        summary=RepairHistorySummary.model_validate(json.loads(item.summary_json)),
+    )
+
+
+@app.get("/api/v1/history", response_model=list[RepairHistoryResponse], tags=["history"])
+def list_history(user: Annotated[User, Depends(current_user)]) -> list[RepairHistoryResponse]:
+    factory = auth_session_factory()
+    session = factory()
+    try:
+        return [
+            _history_response(item)
+            for item in session.scalars(
+                select(RepairHistory)
+                .where(RepairHistory.owner_id == user.id)
+                .order_by(RepairHistory.created_at.desc())
+            )
+        ]
+    finally:
+        session.close()
+
+
+@app.get("/api/v1/history/{history_id}", response_model=RepairHistoryResponse, tags=["history"])
+def history_detail(
+    history_id: str, user: Annotated[User, Depends(current_user)]
+) -> RepairHistoryResponse:
+    factory = auth_session_factory()
+    session = factory()
+    try:
+        item = session.get(RepairHistory, history_id)
+        if item is None or item.owner_id != user.id:
+            raise HTTPException(404, "History entry not found.")
+        return _history_response(item)
+    finally:
+        session.close()
+
+
+@app.delete("/api/v1/history/{history_id}", status_code=204, tags=["history"])
+def delete_history(history_id: str, user: Annotated[User, Depends(current_user)]) -> None:
+    factory = auth_session_factory()
+    session = factory()
+    try:
+        item = session.get(RepairHistory, history_id)
+        if item is None or item.owner_id != user.id:
+            raise HTTPException(404, "History entry not found.")
+        session.delete(item)
+        session.commit()
+    finally:
+        session.close()

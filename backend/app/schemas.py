@@ -227,3 +227,40 @@ class SupplierSearchResponse(BaseModel):
     provider_enabled: bool
     attribution: str = "© OpenStreetMap contributors"
     data_disclaimer: str = "Public OpenStreetMap points are approximate. Verify location, hours, stock, and compatibility directly."
+
+
+class Credentials(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=12, max_length=128)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+
+
+class AccountResponse(BaseModel):
+    id: str
+    email: str
+    created_at: str
+
+
+class RepairHistorySummary(BaseModel):
+    outcome: Literal["supported", "rejected"]
+    confirmed_nominal_size: NominalPipeSize | None
+    repair_method_id: Literal["two_slip_coupling_section_replacement"] | None
+    measured_gap_range_status: GapRangeStatus
+    generic_parts_item_names: list[str] = Field(max_length=20)
+    safety_and_limitation_text: list[str] = Field(max_length=30)
+
+
+class RepairHistoryCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    summary: RepairHistorySummary
+
+
+class RepairHistoryResponse(BaseModel):
+    id: str
+    title: str
+    created_at: str
+    summary: RepairHistorySummary

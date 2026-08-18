@@ -118,6 +118,10 @@ Set `SUPPLIER_SEARCH_ENABLED=true` only after setting a descriptive `SUPPLIER_SE
 
 This integration follows the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) and public [Overpass API guidance](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html). It is intentionally small-scale, user-triggered development functionality, not a high-volume production geocoding service. See the full [supplier-data policy](docs/supplier-data-policy.md).
 
+## Optional accounts and repair history
+
+Accounts are disabled by default and are never required for capture, analysis, measurement, repair guidance, parts, or supplier discovery. When enabled, create `backend/.env` from `.env.example`, choose SQLite locally or PostgreSQL for deployment, and set a strong `JWT_SECRET_KEY` (at least 32 characters). Saved history is explicit and text-only; images and location/provider data are never stored. See [privacy and auth](docs/privacy-and-auth.md).
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh

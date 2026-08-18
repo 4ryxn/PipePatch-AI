@@ -28,6 +28,15 @@ class SupplierSettings:
     nominatim_min_interval_seconds: float
 
 
+@dataclass(frozen=True)
+class AuthSettings:
+    enabled: bool
+    database_url: str
+    jwt_secret_key: str | None
+    jwt_algorithm: str
+    access_token_minutes: int
+
+
 def get_analysis_settings() -> AnalysisSettings:
     """Read non-persisted process configuration without exposing secrets."""
     raw_mode = os.getenv("ANALYSIS_MODE", "mock").lower()
@@ -64,3 +73,17 @@ def get_supplier_settings() -> SupplierSettings:
     if ttl < 0 or timeout <= 0 or interval < 1:
         raise ValueError("Supplier search configuration is invalid.")
     return SupplierSettings(enabled, user_agent, ttl, timeout, interval)
+
+
+def get_auth_settings() -> AuthSettings:
+    enabled = os.getenv("AUTH_ENABLED", "false").lower() == "true"
+    database_url = os.getenv("DATABASE_URL", "sqlite:///./pipepatch.db")
+    secret = os.getenv("JWT_SECRET_KEY") or None
+    algorithm = os.getenv("JWT_ALGORITHM", "HS256")
+    try:
+        minutes = int(os.getenv("JWT_ACCESS_TOKEN_MINUTES", "30"))
+    except ValueError as error:
+        raise ValueError("Authentication configuration is invalid.") from error
+    if enabled and (not secret or len(secret) < 32 or not database_url or minutes <= 0):
+        raise ValueError("Authentication is enabled but server configuration is incomplete.")
+    return AuthSettings(enabled, database_url, secret, algorithm, minutes)
