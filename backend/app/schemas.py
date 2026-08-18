@@ -93,3 +93,21 @@ class RepairAssessmentResponse(BaseModel):
     repair_method_id: Literal["two_slip_coupling_section_replacement"] | None
     parts: list[str]
     tools: list[str]
+
+
+class CalibrationStatus(str, Enum):
+    CALIBRATED = "calibrated"
+    NEEDS_RETAKE = "needs_retake"
+
+
+class CalibrationResponse(BaseModel):
+    """A reference-scale result; it deliberately has no pipe measurements."""
+
+    status: CalibrationStatus
+    pixels_per_mm: float | None
+    marker_id: Literal[23] = 23
+    known_marker_side_mm: Literal[50] = 50
+    quality_score: float
+    retake_reasons: list[str]
+    capture_tips: list[str]
+    scope_note: str

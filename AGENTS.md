@@ -20,6 +20,8 @@
 
 The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Gemini supplies observations only; deterministic Python rules, backed by explicit user confirmations, exclusively authorize or refuse the generic parts checklist. Any unsupported, ambiguous, or low-confidence case must stop and decline guidance. Do not broaden this scope without explicit product approval.
 
+The calibration endpoint is deterministic OpenCV only. Its ArUco marker result establishes an estimated reference scale, never an automatic pipe diameter, cut-gap, nominal-size, or repair-eligibility measurement. Keep its image handling in memory only and fail closed to a retake for uncertain marker detection or quality.
+
 ## Current exclusions
 
 Do not add numbered repair instructions, brands, pricing, suppliers, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized generic parts checklist must fail closed for uncertainty or unsupported cases.

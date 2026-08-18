@@ -93,3 +93,16 @@ npm test
 ## Safety boundary
 
 The MVP is limited to outdoor irrigation Schedule-40 PVC with clean transverse cuts in 1/2 in, 3/4 in, and 1 in sizes. Gemini only observes; the backend's deterministic assessment rules require a live result with at least 0.75 confidence and every explicit safety confirmation before showing the generic parts checklist. Mock results, unknown answers, unsupported line types, active water supply, or any uncertain or failed gate stop guidance. The app does not provide numbered repair steps. See `AGENTS.md` for implementation constraints.
+
+## Calibration card (Phase 4A)
+
+Print [the marker card](docs/assets/pipepatch-aruco-marker-23-50mm.svg) at **100% / actual size**. Do not use “fit to page.” Before use, measure both the black marker square and its verification line with a physical ruler; each must be exactly 50 mm. Reprint if either differs.
+
+The calibration endpoint detects only ArUco `DICT_4X4_50`, marker ID `23`, and returns an estimated pixels-per-millimetre reference scale when the card is complete, large, sharp, and nearly front-on. Place the card flat beside the pipe in the same plane and photograph from above. This scale is an estimate only: Phase 4A does not measure pipe diameter, cut gap, or nominal size. Later phases must add those measurements and explicit user confirmation.
+
+Regenerate the tracked SVG after changing the card generator:
+
+```sh
+backend/.venv/bin/python backend/scripts/generate_marker_card.py \
+  --output docs/assets/pipepatch-aruco-marker-23-50mm.svg
+```

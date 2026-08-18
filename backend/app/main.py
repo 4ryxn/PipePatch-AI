@@ -5,9 +5,10 @@ from typing import Annotated
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from app.analysis import ValidatedImage, validate_upload
+from app.calibration import detect_calibration
 from app.config import get_analysis_settings
 from app.repair_rules import assess_repair
-from app.schemas import AnalysisResponse, HealthResponse, RepairAssessmentRequest, RepairAssessmentResponse
+from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, RepairAssessmentRequest, RepairAssessmentResponse
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
@@ -33,6 +34,12 @@ async def analyze(image: Annotated[UploadFile, File(description="One pipe photo"
         except GeminiServiceError as error:
             raise HTTPException(status_code=error.status_code, detail=error.message) from error
     return mock_analysis(validated_image)
+
+
+@app.post("/api/v1/calibration", response_model=CalibrationResponse, tags=["calibration"])
+async def calibration(image: Annotated[UploadFile, File(description="One calibration photo")]) -> CalibrationResponse:
+    """Return an ephemeral marker scale result without calling Gemini."""
+    return detect_calibration(await validate_upload(image))
 
 
 def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:
