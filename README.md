@@ -106,6 +106,10 @@ Phase 4B uses user-drawn image lines with that server-verified scale to estimate
 
 The app can show deterministic, high-level guidance only for the single fully confirmed outdoor Schedule-40 PVC clean-cut case, after a compatible measured gap and matching visible-diameter suggestion. It never provides a universal cure time: product labels, fitting instructions, ventilation, PPE, no ignition sources, local requirements, and full labelled cure before pressure testing take priority. See [manufacturer sources](docs/repair-guidance-sources.md).
 
+## Demo parts estimates
+
+Eligible cases can receive a static USD materials basket and optional comparison with a real professional quote entered by the user. Every price is a curated demo estimate—not live retailer pricing, inventory, availability, or supplier advice. See [catalog maintenance](docs/catalog-maintenance.md).
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh

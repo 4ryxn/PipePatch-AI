@@ -16,16 +16,19 @@ import { CalibrationGuideScreen } from "./src/screens/CalibrationGuideScreen";
 import { CalibrationResultScreen } from "./src/screens/CalibrationResultScreen";
 import { AssistedMeasurementScreen } from "./src/screens/AssistedMeasurementScreen";
 import { RepairGuidanceScreen } from "./src/screens/RepairGuidanceScreen";
+import { PartsEstimateScreen } from "./src/screens/PartsEstimateScreen";
 import { isRequestCancellation, requestAnalysis } from "./src/services/analysisService";
 import { requestRepairAssessment } from "./src/services/repairAssessmentService";
 import { requestCalibration } from "./src/services/calibrationService";
 import { requestRepairGuidance } from "./src/services/repairGuidanceService";
+import { requestPartsEstimate } from "./src/services/partsEstimateService";
 import { candidateFromAsset, cleanupSelectedImage, normalizeImage } from "./src/services/photoService";
 import { colors } from "./src/theme";
 import type { ImageCandidate, SelectedImage } from "./src/types/image";
 import type { RepairConfirmations } from "./src/types/repair";
 import type { MeasurementResponse } from "./src/types/measurement";
 import type { RepairGuidanceResponse } from "./src/types/repairGuidance";
+import type { PartsEstimateResponse } from "./src/types/partsEstimate";
 import { permissionState, shouldOfferSettings, type PermissionViewState } from "./src/utils/captureController";
 import { validateImage } from "./src/utils/imageValidation";
 import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
@@ -59,6 +62,9 @@ export default function App(): React.JSX.Element {
   const [guidance, setGuidance] = useState<RepairGuidanceResponse | null>(null);
   const [guidanceBusy, setGuidanceBusy] = useState(false);
   const guidanceAbort = useRef<AbortController | null>(null);
+  const [parts, setParts] = useState<PartsEstimateResponse | null>(null);
+  const [partsBusy, setPartsBusy] = useState(false);
+  const partsAbort = useRef<AbortController | null>(null);
 
   useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
   useEffect(() => {
@@ -149,10 +155,12 @@ export default function App(): React.JSX.Element {
   const restart = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); setConfirmations({}); dispatch({ type: "RESET", operationId: id }); };
   const startGuidance = (): void => { if (!flow.analysis || !flow.assessment || !measurement || !isComplete(confirmations) || guidanceBusy) return; const id = invalidate(); const controller = new AbortController(); guidanceAbort.current = controller; setGuidanceBusy(true); void requestRepairGuidance({ analysis: flow.analysis, confirmations: confirmations as RepairConfirmations, measurement }, controller.signal).then((value) => { if (mounted.current && operation.current === id) setGuidance(value); }).catch(() => { if (mounted.current && operation.current === id) setError("Guidance could not be loaded. Retry the assessment."); }).finally(() => { if (mounted.current && operation.current === id) setGuidanceBusy(false); }); };
   const cancelGuidance = (): void => { guidanceAbort.current?.abort(); invalidate(); setGuidanceBusy(false); };
+  const startParts = (quote: number | null = null): void => { if (!flow.analysis || !measurement || !isComplete(confirmations) || partsBusy) return; const id = invalidate(); const controller = new AbortController(); partsAbort.current = controller; setPartsBusy(true); void requestPartsEstimate({ analysis: flow.analysis, confirmations: confirmations as RepairConfirmations, measurement, entered_quote_amount: quote }, controller.signal).then((value) => { if (mounted.current && operation.current === id) setParts(value); }).finally(() => { if (mounted.current && operation.current === id) setPartsBusy(false); }); };
 
   if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
   if (measurementOpen && flow.image) return <SafeAreaProvider><Screen><AssistedMeasurementScreen image={flow.image} onBack={() => setMeasurementOpen(false)} onRetake={replace} onMeasured={(result) => { setMeasurement(result); setMeasurementSuggestion(result.suggested_nominal_size); }} /></Screen></SafeAreaProvider>;
-  if (guidance) return <SafeAreaProvider><Screen><RepairGuidanceScreen guidance={guidance} onBack={() => setGuidance(null)} /></Screen></SafeAreaProvider>;
+  if (parts) return <SafeAreaProvider><Screen><PartsEstimateScreen estimate={parts} onBack={() => setParts(null)} onQuote={startParts} /></Screen></SafeAreaProvider>;
+  if (guidance) return <SafeAreaProvider><Screen><RepairGuidanceScreen guidance={guidance} onBack={() => setGuidance(null)} onParts={() => startParts()} /></Screen></SafeAreaProvider>;
   return <SafeAreaProvider><Screen><StatusBar style="dark" />
     {flow.screen === "home" && <Home healthState={healthState} onStart={() => dispatch({ type: "START" })} />}
     {flow.screen === "guidance" && <Guidance onContinue={() => dispatch({ type: "SHOW_SOURCE" })} />}

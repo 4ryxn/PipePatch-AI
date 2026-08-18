@@ -1,0 +1,3 @@
+import type { RepairDecision, NominalPipeSize } from "./repair";
+export type PartsItem={item_id:string;name:string;nominal_size:NominalPipeSize|null;quantity:number;unit:string;estimated_unit_price_usd:number;category:string;required:boolean;rationale:string};
+export type PartsEstimateResponse={decision:RepairDecision;items:PartsItem[];total_estimated_cost_usd:number|null;currency:"USD";catalog_version:string;last_reviewed_date:string;disclaimer:string;compatibility_notes:string[];alternatives:string[];entered_quote_amount:number|null;comparison_amount:number|null;quote_comparison_status:"no_quote"|"estimated_savings"|"materials_cost_more"|"break_even"|"invalid_quote";explanation:string;reasons:string[]};

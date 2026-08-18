@@ -161,3 +161,38 @@ class RepairGuidanceResponse(BaseModel):
     post_repair_verification: list[str]
     limitations: list[str]
     source_links: list[str]
+
+
+class CatalogItem(BaseModel):
+    item_id: str
+    name: str
+    nominal_size: NominalPipeSize | None
+    quantity: int
+    unit: str
+    estimated_unit_price_usd: float
+    category: str
+    required: bool
+    rationale: str
+
+
+class PartsEstimateRequest(RepairGuidanceRequest):
+    entered_quote_amount: float | None = None
+
+
+class PartsEstimateResponse(BaseModel):
+    decision: RepairDecision
+    items: list[CatalogItem]
+    total_estimated_cost_usd: float | None
+    currency: Literal["USD"] = "USD"
+    catalog_version: str
+    last_reviewed_date: str
+    disclaimer: str
+    compatibility_notes: list[str]
+    alternatives: list[str]
+    entered_quote_amount: float | None
+    comparison_amount: float | None
+    quote_comparison_status: Literal[
+        "no_quote", "estimated_savings", "materials_cost_more", "break_even", "invalid_quote"
+    ]
+    explanation: str
+    reasons: list[str]

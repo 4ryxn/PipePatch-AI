@@ -10,7 +10,20 @@ from app.measurements import measure_image
 from app.config import get_analysis_settings
 from app.repair_rules import assess_repair
 from app.repair_guidance import create_guidance
-from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, ImagePoint, MeasurementResponse, RepairAssessmentRequest, RepairAssessmentResponse, RepairGuidanceRequest, RepairGuidanceResponse
+from app.parts_catalog import parts_estimate
+from app.schemas import (
+    AnalysisResponse,
+    CalibrationResponse,
+    HealthResponse,
+    ImagePoint,
+    MeasurementResponse,
+    PartsEstimateRequest,
+    PartsEstimateResponse,
+    RepairAssessmentRequest,
+    RepairAssessmentResponse,
+    RepairGuidanceRequest,
+    RepairGuidanceResponse,
+)
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
@@ -23,13 +36,17 @@ def health() -> HealthResponse:
 
 
 @app.post("/api/v1/analyze", response_model=AnalysisResponse, tags=["analysis"])
-async def analyze(image: Annotated[UploadFile, File(description="One pipe photo")]) -> AnalysisResponse:
+async def analyze(
+    image: Annotated[UploadFile, File(description="One pipe photo")],
+) -> AnalysisResponse:
     """Validate one image and run the configured non-persistent analysis mode."""
     validated_image = await validate_upload(image)
     try:
         settings = get_analysis_settings()
     except ValueError as error:
-        raise HTTPException(status_code=503, detail="Analysis mode is not configured correctly.") from error
+        raise HTTPException(
+            status_code=503, detail="Analysis mode is not configured correctly."
+        ) from error
     if settings.mode == "gemini":
         try:
             return await analyze_with_gemini(validated_image, settings)
@@ -39,7 +56,9 @@ async def analyze(image: Annotated[UploadFile, File(description="One pipe photo"
 
 
 @app.post("/api/v1/calibration", response_model=CalibrationResponse, tags=["calibration"])
-async def calibration(image: Annotated[UploadFile, File(description="One calibration photo")]) -> CalibrationResponse:
+async def calibration(
+    image: Annotated[UploadFile, File(description="One calibration photo")],
+) -> CalibrationResponse:
     """Return an ephemeral marker scale result without calling Gemini."""
     return detect_calibration(await validate_upload(image))
 
@@ -47,13 +66,23 @@ async def calibration(image: Annotated[UploadFile, File(description="One calibra
 @app.post("/api/v1/measurements", response_model=MeasurementResponse, tags=["calibration"])
 async def measurements(
     image: Annotated[UploadFile, File(description="One calibration photo")],
-    diameter_start_x: Annotated[float, Form()], diameter_start_y: Annotated[float, Form()],
-    diameter_end_x: Annotated[float, Form()], diameter_end_y: Annotated[float, Form()],
-    gap_start_x: Annotated[float, Form()], gap_start_y: Annotated[float, Form()],
-    gap_end_x: Annotated[float, Form()], gap_end_y: Annotated[float, Form()],
+    diameter_start_x: Annotated[float, Form()],
+    diameter_start_y: Annotated[float, Form()],
+    diameter_end_x: Annotated[float, Form()],
+    diameter_end_y: Annotated[float, Form()],
+    gap_start_x: Annotated[float, Form()],
+    gap_start_y: Annotated[float, Form()],
+    gap_end_x: Annotated[float, Form()],
+    gap_end_y: Annotated[float, Form()],
 ) -> MeasurementResponse:
     """Measure only user-selected segments after server-side marker re-detection."""
-    return measure_image(await validate_upload(image), ImagePoint(x=diameter_start_x, y=diameter_start_y), ImagePoint(x=diameter_end_x, y=diameter_end_y), ImagePoint(x=gap_start_x, y=gap_start_y), ImagePoint(x=gap_end_x, y=gap_end_y))
+    return measure_image(
+        await validate_upload(image),
+        ImagePoint(x=diameter_start_x, y=diameter_start_y),
+        ImagePoint(x=diameter_end_x, y=diameter_end_y),
+        ImagePoint(x=gap_start_x, y=gap_start_y),
+        ImagePoint(x=gap_end_x, y=gap_end_y),
+    )
 
 
 def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:
@@ -80,8 +109,12 @@ def repair_assessment(request: RepairAssessmentRequest) -> RepairAssessmentRespo
     try:
         settings = get_analysis_settings()
     except ValueError as error:
-        raise HTTPException(status_code=503, detail="Assessment is not configured correctly.") from error
-    return assess_repair(request.analysis, request.confirmations, settings.repair_minimum_confidence)
+        raise HTTPException(
+            status_code=503, detail="Assessment is not configured correctly."
+        ) from error
+    return assess_repair(
+        request.analysis, request.confirmations, settings.repair_minimum_confidence
+    )
 
 
 @app.post("/api/v1/repair-guidance", response_model=RepairGuidanceResponse, tags=["repair"])
@@ -89,3 +122,8 @@ def repair_guidance(request: RepairGuidanceRequest) -> RepairGuidanceResponse:
     """Return deterministic guidance only after all independent gates pass."""
     settings = get_analysis_settings()
     return create_guidance(request, settings.repair_minimum_confidence)
+
+
+@app.post("/api/v1/parts-estimate", response_model=PartsEstimateResponse, tags=["repair"])
+def estimate_parts(request: PartsEstimateRequest) -> PartsEstimateResponse:
+    return parts_estimate(request, get_analysis_settings().repair_minimum_confidence)
