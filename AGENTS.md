@@ -2,34 +2,26 @@
 
 ## Architecture
 
-- `mobile/` is an Expo/React Native TypeScript client. It may call only this project's backend API.
-- `backend/` is a Python FastAPI service. Any future Gemini API call belongs here, never in the mobile client.
-- SQLite may be introduced later in the backend only; Phase 2 has no database functionality.
+- `web/` is the sole client: a React, TypeScript, and Vite browser application. It may call only this project's backend API.
+- `backend/` is a Python FastAPI service. Gemini API calls belong here only, never in browser code.
+- SQLite is for local development/testing. Optional production accounts/history use PostgreSQL through `DATABASE_URL`.
 - Keep React components and Python modules small, typed, and focused.
 
-## Security
+## Security and privacy
 
 - Never commit `.env` files, API keys, tokens, database credentials, or other secrets.
-- Never put a Gemini API key in `mobile/`, including Expo public environment variables. `EXPO_PUBLIC_*` values are visible to app users.
-- Use `.env.example` files only for non-secret configuration or blank, clearly documented placeholders.
-- The confirmed active image may be uploaded only to this backend. Do not log, retain, or persist image data; do not request EXIF, location, or base64 image data in mobile code. Original library photos must never be deleted; remove app-created temporary normalized copies when practical.
+- `VITE_*` values are visible to browser users. Only `VITE_API_BASE_URL` is permitted; it must never contain Gemini credentials, JWT secrets, or database URLs.
+- Keep the selected photo only in browser memory. Send it only to this backend after the user confirms. Do not log, retain, or persist image data; do not request EXIF, location, or base64 data.
 - Gemini may be called only by the backend when explicitly enabled with server-only configuration. Never log or expose API keys, prompts, raw provider responses, filenames, or image data. Do not use provider file storage, tools, grounding, search, code execution, URL context, or conversation history; do not silently substitute mock data if live analysis fails.
-- Camera and library access must be requested only at the user action that needs it. Cancellation is a normal navigation outcome, not an error.
+- Browser camera/file selection is user initiated. Cancellation is normal navigation, not an error.
+- CORS uses explicit configured origins only. Do not introduce a wildcard origin.
 
 ## Product safety boundary
 
-The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Gemini supplies observations only; deterministic Python rules, backed by explicit user confirmations, exclusively authorize or refuse the generic parts checklist. Any unsupported, ambiguous, or low-confidence case must stop and decline guidance. Do not broaden this scope without explicit product approval.
+The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Gemini supplies observations only; deterministic Python rules, backed by explicit user confirmations, exclusively authorize or refuse generic guidance. Any unsupported, ambiguous, or low-confidence case must stop and decline guidance.
 
-Damage taxonomy is observation-only. `clean_transverse_cut` is the sole taxonomy ID that may reach the existing deterministic clean-cut gates; every other taxonomy ID must fail closed with no repair, parts, price, or supplier path. Real datasets require consent, de-identification, annotation review, and storage outside Git unless expressly approved. Offline evaluation consumes recorded labels/predictions only and never calls a model or opens/uploads images.
-
-The calibration endpoint is deterministic OpenCV only. Its ArUco marker result establishes an estimated reference scale, never an automatic pipe diameter, cut-gap, nominal-size, or repair-eligibility measurement. Keep its image handling in memory only and fail closed to a retake for uncertain marker detection or quality.
+The calibration endpoint is deterministic OpenCV only. Its ArUco marker result establishes an estimated reference scale, never an automatic pipe diameter, cut-gap, nominal-size, or repair-eligibility measurement. Keep image handling in memory only and fail closed to a retake for uncertain marker detection or quality.
 
 Assisted measurement may convert only user-selected image points with a server-re-detected marker scale. Treat the result as an estimate and advisory context; it must never preselect or authorize repair-confirmation answers. Deterministic repair guidance may be shown only after every assessment and measurement gate passes; product labels and local requirements always override app wording.
 
-## Supplier-discovery constraints
-
-The optional supplier flow is available only after deterministic eligibility, measured in-range gap, and matching explicit/measured size gates pass. It is a user-triggered, server-side lookup of a general city/area/postcode using public OSM data. Never send exact addresses, add client-side provider calls, autocomplete, background location, reverse-geocoding grids, scraping, tracking, or persistence. Results are approximate public POIs: never claim stock, price, hours, availability, or compatibility. Respect the configured Nominatim rate limit, descriptive User-Agent, short process-local cache, timeouts, OSM attribution, and category-search fallback.
-
-## Current exclusions
-
-Do not add brands, live pricing, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized deterministic guidance must fail closed for uncertainty or unsupported cases.
+The optional supplier flow is available only after deterministic eligibility, measured in-range gap, and matching explicit/measured size gates pass. It is user-triggered and server-side, using a general city/area/postcode and public OSM data. Never send exact addresses, add client-side provider calls, autocomplete, background location, reverse-geocoding grids, scraping, tracking, or persistence. Never claim stock, price, hours, availability, or compatibility.

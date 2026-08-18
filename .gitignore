@@ -17,14 +17,10 @@ data/field-images/
 data/user-photos/
 data/evaluation-output/
 
-# JavaScript / Expo
-mobile/node_modules/
-mobile/.expo/
-mobile/dist/
-mobile/web-build/
-mobile/npm-debug.log*
+# JavaScript
 web/node_modules/
 web/dist/
+web/npm-debug.log*
 
 # OS and editor files
 .DS_Store

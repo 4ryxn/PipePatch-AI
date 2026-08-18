@@ -2,13 +2,13 @@
 
 **Project stage:** Phase 1 foundation complete; this document specifies the planned MVP.  
 **Status:** Design baseline for implementation and final-year project reporting.  
-**Current implementation:** Backend health endpoint and mobile health display only. No analysis, AI, database, image storage, or repair logic is implemented yet.
+**Current implementation:** The React/Vite web client and FastAPI backend provide the documented bounded workflow. Images remain ephemeral; optional account history is text-only.
 
 ## 1. Project title and abstract
 
 **Title:** PipePatch AI: Safety-Gated Visual Assistance for Straight PVC Irrigation Pipe Repairs
 
-PipePatch AI is a mobile-assisted decision-support system for a narrowly defined irrigation repair problem: a clean transverse cut in an exposed, straight section of outdoor Schedule-40 PVC irrigation pipe. A user captures photos that include a printed ArUco calibration marker. The backend uses a vision model to extract visual observations and OpenCV to validate the marker and calculate physical dimensions. Deterministic Python rules, rather than the vision model, decide whether the evidence is sufficient and whether guidance is allowed. When all safety gates pass, the application can present a conservative repair method based on a pressure-rated telescoping/slide repair coupling, curated parts, tools, safety checks, and a non-live approximate material-cost range. Unsupported or uncertain cases must stop without repair advice.
+PipePatch AI is a web-based decision-support system for a narrowly defined irrigation repair problem: a clean transverse cut in an exposed, straight section of outdoor Schedule-40 PVC irrigation pipe. A user selects or captures photos in the browser, including a printed ArUco calibration marker. The FastAPI backend uses a vision model to extract visual observations and OpenCV to validate the marker and calculate physical dimensions. Deterministic Python rules, rather than the vision model, decide whether the evidence is sufficient and whether guidance is allowed. Unsupported or uncertain cases must stop without repair advice.
 
 ## 2. Problem statement
 
@@ -38,7 +38,7 @@ The product is not intended to replace a licensed plumber, irrigation profession
 
 | ID | Requirement | Acceptance test |
 | --- | --- | --- |
-| FR-01 | The mobile app shall let an anonymous user begin a new assessment and capture or select required images. | A user can complete the capture flow without creating an account. |
+| FR-01 | The web app shall let an anonymous user begin a new assessment and capture or select required images. | A user can complete the capture flow without creating an account. |
 | FR-02 | The app shall show printable-marker instructions and require confirmation that the configured marker was printed at 100% scale. | The flow cannot submit an automated measurement capture without marker instructions and confirmation. |
 | FR-03 | The backend shall validate that an expected ArUco marker is detected, decodable, and large enough for measurement. | Invalid, missing, or undersized marker fixtures return a refusal/request-for-new-image result. |
 | FR-04 | The vision model shall return structured visual observations only; it shall not decide repair eligibility or generate repair instructions. | A code review and unit test show that model output is passed to deterministic gating before any guidance response. |
@@ -58,8 +58,8 @@ The product is not intended to replace a licensed plumber, irrigation profession
 | Safety | Fail closed: missing, conflicting, or insufficient evidence returns no repair advice. |
 | Reliability | The rule engine must be deterministic and covered by unit tests for every safety gate and refusal code. |
 | Performance | Target a normal analysis result or refusal within 15 seconds on a typical development-network connection; timeout must return a safe retry state. |
-| Accessibility | Mobile screens shall use readable labels, sufficient contrast, non-colour-only status signals, and screen-reader labels for capture and result states. |
-| Maintainability | Mobile code is React Native/Expo/TypeScript; backend code is Python/FastAPI/Pydantic; components and modules remain small and typed. |
+| Accessibility | Web views shall use readable labels, sufficient contrast, non-colour-only status signals, keyboard support, and accessible names for capture and result states. |
+| Maintainability | Web code is React/TypeScript/Vite; backend code is Python/FastAPI/Pydantic; components and modules remain small and typed. |
 | Observability | Log request IDs, timing, rule outcomes, and non-sensitive error codes only. Do not log image contents, raw images, API keys, or full model prompts/responses that may contain image-derived data. |
 | Reproducibility | Dependencies shall be pinned or lockfile-controlled; API schemas and parts knowledge shall be versioned. |
 | Availability | The MVP may be unavailable when its backend or model service is unreachable; it must fail safely and explain the next action. |
@@ -114,7 +114,7 @@ Initial conservative provisional thresholds, subject to calibration against the 
 
 These are starting values, not validated operating limits. The evaluation dataset must be used to recalibrate them for safety-focused recall: uncertainty must increase refusals, not produce guesses.
 
-## 10. Complete mobile user flow
+## 10. Complete web user flow
 
 1. **Welcome and scope:** Explain that PipePatch AI handles only a clean cut in exposed, straight outdoor Schedule-40 PVC and may refuse cases. User selects “Start assessment.”
 2. **Safety pre-check:** User confirms water is shut off, the line is depressurized, area is safe, and the pipe is accessible. A negative answer stops the flow.
@@ -130,7 +130,7 @@ These are starting values, not validated operating limits. The evaluation datase
 8. **Manual verification:** For a supported result, let the user manually compare against a ruler; mark it as user verification only and instruct them to stop if it disagrees with the calibrated result.
 9. **Completion:** Present safe cleanup and pressure-restoration checks. No cloud history is created for anonymous MVP users.
 
-## 11. Planned mobile screens
+## 11. Planned web views
 
 | Screen | Purpose | Key controls and states |
 | --- | --- | --- |
@@ -147,7 +147,7 @@ These are starting values, not validated operating limits. The evaluation datase
 
 ## 12. Backend architecture
 
-The backend is a Python FastAPI service using Pydantic request/response models. It is the only component permitted to call OpenAI or any other AI provider. The Expo mobile app communicates only with this backend and contains no API credentials.
+The backend is a Python FastAPI service using Pydantic request/response models. It is the only component permitted to call Gemini or any other AI provider. The React/Vite web client communicates only with this backend and contains no API credentials.
 
 Planned backend modules:
 
@@ -176,7 +176,7 @@ Response `200`:
 
 ### `POST /v1/analyses` (planned)
 
-Accepts multipart image files and structured capture metadata. The mobile client sends no secrets.
+Accepts multipart image files and structured capture metadata. The web client sends no secrets.
 
 Required metadata:
 
@@ -340,7 +340,7 @@ SQLite is planned for later backend-only use. Raw image storage is not an entity
 
 ## 20. Privacy and security requirements
 
-- Mobile code and all `EXPO_PUBLIC_*` variables shall contain no OpenAI API key or other secret. OpenAI calls, if introduced, occur only on the backend.
+- Browser code and all `VITE_*` variables shall contain no Gemini API key or other secret. Gemini calls occur only on the backend.
 - Backend credentials shall be loaded from uncommitted server-side configuration and rotated through the deployment environment; they must never appear in source, logs, client responses, or screenshots.
 - Use HTTPS/TLS for client-backend and backend-provider traffic outside local development.
 - Anonymous sessions are sufficient for the MVP. Accounts, synchronization, and cloud repair history are out of scope.
@@ -365,8 +365,8 @@ SQLite is planned for later backend-only use. Raw image storage is not an entity
 | Contract | FastAPI request/response schemas, invalid media/metadata handling, versioned outcome envelopes, and guarantee of null repair guidance for refusals. |
 | Image/calibration | Curated fixtures covering marker position, blur, glare, printing-scale error, perspective, occlusion, supported pipe sizes, and near-boundary dimensions. |
 | Integration | Mocked vision provider plus real rule engine and knowledge base; verify model output cannot bypass authorization. |
-| Mobile | Screen navigation, capture validation, accessible labels, supported/refusal rendering, retry/cancel, and no repair steps in refusal states. |
-| Security/privacy | Secret scanning, dependency checks, log-redaction tests, image-deletion tests, and mobile bundle inspection for credential absence. |
+| Web | View navigation, upload validation, accessible labels, supported/refusal rendering, retry/cancel, and no repair steps in refusal states. |
+| Security/privacy | Secret scanning, dependency checks, log-redaction tests, image-handling tests, and web-build inspection for credential absence. |
 | Manual/usability | Representative users follow print/capture instructions; record comprehension, capture success, and safe interpretation of refusal messages. |
 | Regression | Versioned goldens for supported cases, all refusal codes, calibration profiles, and knowledge-base revisions. |
 
@@ -410,14 +410,14 @@ Acceptance thresholds for these metrics are unresolved until the dataset is defi
 
 The MVP is ready for demonstration only when all of the following are demonstrably true:
 
-1. The Expo TypeScript app communicates only with the FastAPI backend; no mobile artifact contains an OpenAI API key.
+1. The React/TypeScript/Vite web app communicates only with the FastAPI backend; no browser artifact contains a Gemini API key.
 2. The backend successfully validates a configured ArUco marker and produces measurement uncertainty for controlled test images.
 3. The backend refuses ordinary, ruler-only, missing-marker, and ambiguous images without claiming exact automated pipe size.
 4. Controlled clean-cut, exposed, straight Schedule-40 PVC fixtures of 1/2 in, 3/4 in, and 1 in can reach a supported result only when all configured gates pass.
 5. Every unsupported/hazardous fixture produces a typed refusal/recapture result with `repair_guidance: null`.
 6. A supported response contains only the approved pressure-rated telescoping/slide repair-coupling method, curated parts/tools/safety checks, and a clearly non-live approximate cost range.
 7. No supported response recommends flexible rubber drain couplings for pressurized irrigation.
-8. Automated tests cover the health endpoint, schemas, rule engine, calibration fixtures, refusal precedence, API contracts, and mobile outcome rendering.
+8. Automated tests cover the health endpoint, schemas, rule engine, calibration fixtures, refusal precedence, API contracts, and web outcome rendering.
 9. Submitted images are deleted by default after processing and are absent from operational logs; an inspection test demonstrates this policy.
 10. The evaluation report documents false accepts, refusals, sizing performance, confidence calibration, limitations, and all threshold values used for the demonstration.
 

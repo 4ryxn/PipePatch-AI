@@ -1,3 +1,0 @@
-/* eslint-disable import/first */
-const fetchMock=jest.fn(); jest.mock("../config/api",()=>({apiBaseUrl:"http://example.test"})); import { requestPartsEstimate } from "./partsEstimateService";
-test("maps an estimate request without live-pricing headers",async()=>{Object.defineProperty(global,"fetch",{configurable:true,value:fetchMock});fetchMock.mockResolvedValue({ok:true,json:async()=>({})});await requestPartsEstimate({analysis:{} as never,confirmations:{} as never,measurement:{} as never,entered_quote_amount:120},new AbortController().signal);expect(fetchMock).toHaveBeenCalledWith("http://example.test/api/v1/parts-estimate",expect.objectContaining({method:"POST",headers:{"Content-Type":"application/json"}}));});

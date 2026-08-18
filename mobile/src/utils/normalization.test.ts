@@ -1,7 +1,0 @@
-import { decideNormalization } from "./normalization";
-const image = { localUri: "file:///pipe.jpg", width: 3200, height: 1600, mimeType: "image/jpeg", fileSize: null, source: "camera" as const, originalOwnership: "app_owned" as const };
-test("normalizes the longest dimension without enlarging", () => expect(decideNormalization(image)).toEqual({ normalize: true, targetWidth: 1600, targetHeight: 800 }));
-test("leaves a compliant image unchanged", () => expect(decideNormalization({ ...image, width: 1200, height: 900 })).toEqual({ normalize: false }));
-test("calculates portrait dimensions and never enlarges", () => { expect(decideNormalization({ ...image, width: 800, height: 3200 })).toEqual({ normalize: true, targetWidth: 400, targetHeight: 1600 }); expect(decideNormalization({ ...image, width: 800, height: 700 })).toEqual({ normalize: false }); });
-test("keeps an exact maximum dimension and handles known oversized files", () => { expect(decideNormalization({ ...image, width: 1600, height: 900 })).toEqual({ normalize: false }); expect(decideNormalization({ ...image, width: 1200, height: 900, fileSize: 9 * 1024 * 1024 })).toEqual({ normalize: true, targetWidth: 1200, targetHeight: 900 }); });
-test.each([undefined, Number.NaN, Infinity, 0, -1, 1.5])("invalid dimensions do not produce resize instructions: %s", (width) => expect(decideNormalization({ ...image, width: width as number })).toEqual({ normalize: false }));
