@@ -110,6 +110,14 @@ The app can show deterministic, high-level guidance only for the single fully co
 
 Eligible cases can receive a static USD materials basket and optional comparison with a real professional quote entered by the user. Every price is a curated demo estimate—not live retailer pricing, inventory, availability, or supplier advice. See [catalog maintenance](docs/catalog-maintenance.md).
 
+## Optional nearby materials discovery
+
+After every deterministic assessment, measurement, and size-consistency gate passes, the app can make one explicit, server-side lookup for a user-entered general city, area, or postcode. It does not collect an exact address, use autocomplete, track location, run background searches, or retain search data.
+
+Set `SUPPLIER_SEARCH_ENABLED=true` only after setting a descriptive `SUPPLIER_SEARCH_USER_AGENT`. The backend uses one Nominatim geocode request and one Overpass public-POI request, with a short process-local cache and a process-wide Nominatim pace of at most one request per second. Results are public OpenStreetMap points, straight-line estimates only; availability, stock, prices, hours, and suitability are always unknown. Public-provider availability is not guaranteed, so the app provides a generic Google Maps hardware-store category search as a fallback. OpenStreetMap attribution is shown with results.
+
+This integration follows the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) and public [Overpass API guidance](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html). It is intentionally small-scale, user-triggered development functionality, not a high-volume production geocoding service. See the full [supplier-data policy](docs/supplier-data-policy.md).
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh

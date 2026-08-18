@@ -37,9 +37,13 @@ def _is_safety_block(response: object) -> bool:
 
 def _map_api_error(error: errors.APIError) -> GeminiServiceError:
     if error.code in {401, 403}:
-        return GeminiServiceError(503, "Gemini analysis is not configured correctly on this server.")
+        return GeminiServiceError(
+            503, "Gemini analysis is not configured correctly on this server."
+        )
     if error.code == 429:
-        return GeminiServiceError(429, "The AI analysis is temporarily rate limited. Try again later.")
+        return GeminiServiceError(
+            429, "The AI analysis is temporarily rate limited. Try again later."
+        )
     if error.code in {408, 504}:
         return GeminiServiceError(504, "The AI analysis timed out. Try again.")
     if error.code >= 500:
@@ -71,15 +75,22 @@ async def analyze_with_gemini(
         response = await asyncio.to_thread(
             client.models.generate_content,
             model=settings.gemini_model,
-            contents=["Inspect this image as visual evidence only.", types.Part.from_bytes(data=image.content, mime_type=image.content_type)],
+            contents=[
+                "Inspect this image as visual evidence only.",
+                types.Part.from_bytes(data=image.content, mime_type=image.content_type),
+            ],
             config=config,
         )
         if _is_safety_block(response):
-            raise GeminiServiceError(422, "The AI analysis declined this image. Choose another image.")
+            raise GeminiServiceError(
+                422, "The AI analysis declined this image. Choose another image."
+            )
         try:
             parsed: Any = GeminiAnalysisResponse.model_validate(response.parsed)
         except (AttributeError, ValidationError) as error:
-            raise GeminiServiceError(502, "The AI analysis returned an invalid response. Try again.") from error
+            raise GeminiServiceError(
+                502, "The AI analysis returned an invalid response. Try again."
+            ) from error
         return AnalysisResponse(**parsed.model_dump(), is_mock=False)
     except GeminiServiceError:
         raise

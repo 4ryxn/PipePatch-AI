@@ -7,10 +7,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from app.analysis import ValidatedImage, validate_upload
 from app.calibration import detect_calibration
 from app.measurements import measure_image
-from app.config import get_analysis_settings
+from app.config import get_analysis_settings, get_supplier_settings
 from app.repair_rules import assess_repair
 from app.repair_guidance import create_guidance
 from app.parts_catalog import parts_estimate
+from app.suppliers import SupplierSearchService
 from app.schemas import (
     AnalysisResponse,
     CalibrationResponse,
@@ -23,10 +24,23 @@ from app.schemas import (
     RepairAssessmentResponse,
     RepairGuidanceRequest,
     RepairGuidanceResponse,
+    SupplierSearchRequest,
+    SupplierSearchResponse,
 )
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
+_supplier_services: dict[object, SupplierSearchService] = {}
+
+
+def supplier_service() -> SupplierSearchService:
+    """Keep provider pacing and the short TTL cache process-wide."""
+    settings = get_supplier_settings()
+    service = _supplier_services.get(settings)
+    if service is None:
+        service = SupplierSearchService(settings)
+        _supplier_services[settings] = service
+    return service
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
@@ -127,3 +141,10 @@ def repair_guidance(request: RepairGuidanceRequest) -> RepairGuidanceResponse:
 @app.post("/api/v1/parts-estimate", response_model=PartsEstimateResponse, tags=["repair"])
 def estimate_parts(request: PartsEstimateRequest) -> PartsEstimateResponse:
     return parts_estimate(request, get_analysis_settings().repair_minimum_confidence)
+
+
+@app.post("/api/v1/suppliers/search", response_model=SupplierSearchResponse, tags=["suppliers"])
+async def search_suppliers(request: SupplierSearchRequest) -> SupplierSearchResponse:
+    """User-triggered general-area discovery; never persist a location or result."""
+    settings = get_analysis_settings()
+    return await supplier_service().search(request, settings.repair_minimum_confidence)

@@ -16,7 +16,7 @@ def marker_image(marker_ids: list[int], size: int = 220, blur: bool = False) -> 
     positions = [(80, 80), (320, 80)]
     for marker_id, (left, top) in zip(marker_ids, positions):
         marker = cv2.aruco.generateImageMarker(dictionary, marker_id, size)
-        canvas[top:top + size, left:left + size] = marker
+        canvas[top : top + size, left : left + size] = marker
     if blur:
         canvas = cv2.GaussianBlur(canvas, (31, 31), 0)
     success, encoded = cv2.imencode(".png", canvas)
@@ -47,7 +47,9 @@ def test_missing_or_wrong_marker_needs_retake() -> None:
 
 
 def test_duplicate_or_mixed_markers_need_retake() -> None:
-    duplicate = detect_calibration(calibrated_input(marker_image([EXPECTED_MARKER_ID, EXPECTED_MARKER_ID])))
+    duplicate = detect_calibration(
+        calibrated_input(marker_image([EXPECTED_MARKER_ID, EXPECTED_MARKER_ID]))
+    )
     mixed = detect_calibration(calibrated_input(marker_image([EXPECTED_MARKER_ID, 22])))
     assert duplicate.status is CalibrationStatus.NEEDS_RETAKE
     assert mixed.status is CalibrationStatus.NEEDS_RETAKE

@@ -7,7 +7,7 @@ for physical measurements in a later phase.
 
 from typing import Any, Final
 
-import cv2  # type: ignore[import-untyped]
+import cv2
 import numpy as np
 
 from app.analysis import ValidatedImage
@@ -47,11 +47,15 @@ def detect_calibration(image: ValidatedImage) -> CalibrationResponse:
         return _retake("The required ArUco marker ID 23 was not found.")
 
     detected_ids = [int(marker_id) for marker_id in marker_ids.flatten().tolist()]
-    expected_indices = [index for index, marker_id in enumerate(detected_ids) if marker_id == EXPECTED_MARKER_ID]
+    expected_indices = [
+        index for index, marker_id in enumerate(detected_ids) if marker_id == EXPECTED_MARKER_ID
+    ]
     if not expected_indices:
         return _retake("A different marker was found; use only the printed PipePatch marker ID 23.")
     if len(expected_indices) != 1:
-        return _retake("More than one marker ID 23 was found. Keep one complete marker in the image.")
+        return _retake(
+            "More than one marker ID 23 was found. Keep one complete marker in the image."
+        )
     if len(detected_ids) != 1:
         return _retake("A different marker was also found. Keep only marker ID 23 visible.")
 
@@ -61,21 +65,31 @@ def detect_calibration(image: ValidatedImage) -> CalibrationResponse:
     longest_side = max(side_lengths)
     average_side = sum(side_lengths) / len(side_lengths)
     if shortest_side <= 0 or average_side <= 0:
-        return _retake("The detected marker scale was invalid. Keep the complete marker flat and visible.")
+        return _retake(
+            "The detected marker scale was invalid. Keep the complete marker flat and visible."
+        )
     if average_side < MIN_MARKER_SIDE_PIXELS:
-        return _retake("The marker is too small in the image. Move closer while keeping it complete.")
+        return _retake(
+            "The marker is too small in the image. Move closer while keeping it complete."
+        )
 
     side_ratio = longest_side / shortest_side
     if side_ratio > MAX_SIDE_LENGTH_RATIO:
-        return _retake("The marker is too angled for a reliable flat-plane reference scale. Capture from directly above.")
+        return _retake(
+            "The marker is too angled for a reliable flat-plane reference scale. Capture from directly above."
+        )
 
     sharpness = _marker_sharpness(grayscale, marker_corners)
     if sharpness < MIN_SHARPNESS_VARIANCE:
-        return _retake("The marker is too blurry for a reliable reference scale. Hold still and improve lighting.")
+        return _retake(
+            "The marker is too blurry for a reliable reference scale. Hold still and improve lighting."
+        )
 
     pixels_per_mm = average_side / MARKER_SIDE_MM
     if not np.isfinite(pixels_per_mm) or pixels_per_mm <= 0:
-        return _retake("The calculated reference scale was invalid. Retake the photo from directly above.")
+        return _retake(
+            "The calculated reference scale was invalid. Retake the photo from directly above."
+        )
 
     quality_score = _quality_score(average_side, sharpness, side_ratio)
     return CalibrationResponse(
@@ -95,7 +109,9 @@ def _side_lengths(corners: Any) -> list[float]:
 def _marker_sharpness(grayscale: Any, corners: Any) -> float:
     left, top = np.floor(corners.min(axis=0)).astype(int)
     right, bottom = np.ceil(corners.max(axis=0)).astype(int)
-    crop = grayscale[max(0, top): min(grayscale.shape[0], bottom), max(0, left): min(grayscale.shape[1], right)]
+    crop = grayscale[
+        max(0, top) : min(grayscale.shape[0], bottom), max(0, left) : min(grayscale.shape[1], right)
+    ]
     if crop.size == 0:
         return 0.0
     return float(cv2.Laplacian(crop, cv2.CV_64F).var())

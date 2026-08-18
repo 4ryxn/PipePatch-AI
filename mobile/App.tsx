@@ -17,6 +17,7 @@ import { CalibrationResultScreen } from "./src/screens/CalibrationResultScreen";
 import { AssistedMeasurementScreen } from "./src/screens/AssistedMeasurementScreen";
 import { RepairGuidanceScreen } from "./src/screens/RepairGuidanceScreen";
 import { PartsEstimateScreen } from "./src/screens/PartsEstimateScreen";
+import { SupplierSearchScreen } from "./src/screens/SupplierSearchScreen";
 import { isRequestCancellation, requestAnalysis } from "./src/services/analysisService";
 import { requestRepairAssessment } from "./src/services/repairAssessmentService";
 import { requestCalibration } from "./src/services/calibrationService";
@@ -29,11 +30,13 @@ import type { RepairConfirmations } from "./src/types/repair";
 import type { MeasurementResponse } from "./src/types/measurement";
 import type { RepairGuidanceResponse } from "./src/types/repairGuidance";
 import type { PartsEstimateResponse } from "./src/types/partsEstimate";
+import type { SupplierSearchRequest } from "./src/types/supplier";
 import { permissionState, shouldOfferSettings, type PermissionViewState } from "./src/utils/captureController";
 import { validateImage } from "./src/utils/imageValidation";
 import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
 import { reviewImageHeight } from "./src/utils/responsive";
 import { guidanceBlock } from "./src/utils/guidancePolicy";
+import { supplierBlock } from "./src/utils/supplierPolicy";
 
 type HealthState = "checking" | "healthy" | "unavailable";
 type HealthResponse = { status: "ok" };
@@ -65,6 +68,7 @@ export default function App(): React.JSX.Element {
   const [parts, setParts] = useState<PartsEstimateResponse | null>(null);
   const [partsBusy, setPartsBusy] = useState(false);
   const partsAbort = useRef<AbortController | null>(null);
+  const [supplierOpen, setSupplierOpen] = useState(false);
 
   useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
   useEffect(() => {
@@ -159,7 +163,14 @@ export default function App(): React.JSX.Element {
 
   if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
   if (measurementOpen && flow.image) return <SafeAreaProvider><Screen><AssistedMeasurementScreen image={flow.image} onBack={() => setMeasurementOpen(false)} onRetake={replace} onMeasured={(result) => { setMeasurement(result); setMeasurementSuggestion(result.suggested_nominal_size); }} /></Screen></SafeAreaProvider>;
-  if (parts) return <SafeAreaProvider><Screen><PartsEstimateScreen estimate={parts} onBack={() => setParts(null)} onQuote={startParts} /></Screen></SafeAreaProvider>;
+  if (supplierOpen) {
+    const blocked = !flow.analysis ? "A live analysis is required. Return to the assessment and try again." : !flow.assessment ? "A completed repair assessment is required. Return to the assessment and try again." : !measurement ? "A completed assisted measurement is required. Retake or remeasure the photo." : !isComplete(confirmations) ? "Complete every repair confirmation before finding materials." : supplierBlock(flow.analysis, flow.assessment, measurement, confirmations);
+    if (blocked) return <SafeAreaProvider><Screen><Text style={s.title}>Nearby materials unavailable</Text><Text style={s.body}>{blocked}</Text><AppButton label="Back to parts estimate" variant="secondary" onPress={() => setSupplierOpen(false)} /></Screen></SafeAreaProvider>;
+    if (!flow.analysis || !flow.assessment || !measurement || !isComplete(confirmations)) return <SafeAreaProvider><Screen><Text style={s.title}>Nearby materials unavailable</Text></Screen></SafeAreaProvider>;
+    const baseRequest: Omit<SupplierSearchRequest, "area" | "radius_km" | "max_results"> = { analysis: flow.analysis, confirmations, measurement };
+    return <SafeAreaProvider><Screen><SupplierSearchScreen baseRequest={baseRequest} onBack={() => setSupplierOpen(false)} /></Screen></SafeAreaProvider>;
+  }
+  if (parts) return <SafeAreaProvider><Screen><PartsEstimateScreen estimate={parts} onBack={() => setParts(null)} onQuote={startParts} onSuppliers={() => setSupplierOpen(true)} /></Screen></SafeAreaProvider>;
   if (guidance) return <SafeAreaProvider><Screen><RepairGuidanceScreen guidance={guidance} onBack={() => setGuidance(null)} onParts={() => startParts()} /></Screen></SafeAreaProvider>;
   return <SafeAreaProvider><Screen><StatusBar style="dark" />
     {flow.screen === "home" && <Home healthState={healthState} onStart={() => dispatch({ type: "START" })} />}

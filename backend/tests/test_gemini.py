@@ -96,7 +96,9 @@ async def test_gemini_mode_requires_a_server_key() -> None:
         (errors.ServerError(500, {}), 503),
     ],
 )
-async def test_gemini_failures_are_mapped_without_provider_details(provider_error: Exception, status_code: int) -> None:
+async def test_gemini_failures_are_mapped_without_provider_details(
+    provider_error: Exception, status_code: int
+) -> None:
     client = FakeClient(provider_error)
 
     with pytest.raises(GeminiServiceError) as error:
@@ -108,8 +110,14 @@ async def test_gemini_failures_are_mapped_without_provider_details(provider_erro
 
 @pytest.mark.anyio
 async def test_gemini_safety_block_and_malformed_output_are_safe_errors() -> None:
-    blocked = FakeClient(SimpleNamespace(parsed=None, prompt_feedback=SimpleNamespace(block_reason="SAFETY"), candidates=[]))
-    malformed = FakeClient(SimpleNamespace(parsed={"supported_case": False}, prompt_feedback=None, candidates=[]))
+    blocked = FakeClient(
+        SimpleNamespace(
+            parsed=None, prompt_feedback=SimpleNamespace(block_reason="SAFETY"), candidates=[]
+        )
+    )
+    malformed = FakeClient(
+        SimpleNamespace(parsed={"supported_case": False}, prompt_feedback=None, candidates=[])
+    )
 
     with pytest.raises(GeminiServiceError, match="declined") as safety_error:
         await analyze_with_gemini(image(), settings(), client_factory(blocked))

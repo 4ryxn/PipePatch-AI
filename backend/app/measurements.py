@@ -3,12 +3,18 @@
 import math
 from typing import Final
 
-import cv2  # type: ignore[import-untyped]
+import cv2
 import numpy as np
 
 from app.analysis import ValidatedImage
 from app.calibration import detect_calibration
-from app.schemas import GapRangeStatus, ImagePoint, MeasurementResponse, MeasurementStatus, NominalPipeSize
+from app.schemas import (
+    GapRangeStatus,
+    ImagePoint,
+    MeasurementResponse,
+    MeasurementStatus,
+    NominalPipeSize,
+)
 
 MIN_LINE_PIXELS: Final = 30.0
 SIZE_TOLERANCE_MM: Final = 2.0
@@ -23,7 +29,13 @@ LIMITATIONS: Final = [
 ]
 
 
-def measure_image(image: ValidatedImage, diameter_start: ImagePoint, diameter_end: ImagePoint, gap_start: ImagePoint, gap_end: ImagePoint) -> MeasurementResponse:
+def measure_image(
+    image: ValidatedImage,
+    diameter_start: ImagePoint,
+    diameter_end: ImagePoint,
+    gap_start: ImagePoint,
+    gap_end: ImagePoint,
+) -> MeasurementResponse:
     calibration = detect_calibration(image)
     if calibration.pixels_per_mm is None:
         return _retake(calibration.retake_reasons, calibration.quality_score)
@@ -33,23 +45,51 @@ def measure_image(image: ValidatedImage, diameter_start: ImagePoint, diameter_en
     height, width = decoded.shape[:2]
     points = [diameter_start, diameter_end, gap_start, gap_end]
     if not all(_valid_point(point, width, height) for point in points):
-        return _retake(["Measurement points must be finite and inside the original image."], calibration.quality_score)
+        return _retake(
+            ["Measurement points must be finite and inside the original image."],
+            calibration.quality_score,
+        )
     diameter_pixels = _distance(diameter_start, diameter_end)
     gap_pixels = _distance(gap_start, gap_end)
     if diameter_pixels < MIN_LINE_PIXELS or gap_pixels < MIN_LINE_PIXELS:
-        return _retake(["Draw each measurement line longer and tap distinct visible endpoints."], calibration.quality_score)
+        return _retake(
+            ["Draw each measurement line longer and tap distinct visible endpoints."],
+            calibration.quality_score,
+        )
     diameter_mm = diameter_pixels / calibration.pixels_per_mm
     gap_mm = gap_pixels / calibration.pixels_per_mm
-    if not math.isfinite(diameter_mm) or not math.isfinite(gap_mm) or diameter_mm <= 0 or gap_mm <= 0:
+    if (
+        not math.isfinite(diameter_mm)
+        or not math.isfinite(gap_mm)
+        or diameter_mm <= 0
+        or gap_mm <= 0
+    ):
         return _retake(["The calculated measurement was invalid."], calibration.quality_score)
     suggestion, ambiguity = _suggest_size(diameter_mm)
     line_score = min(1.0, min(diameter_pixels, gap_pixels) / 140.0)
-    quality = round(calibration.quality_score * 0.7 + line_score * 0.3 - (0.12 if ambiguity else 0.0), 3)
-    return MeasurementResponse(status=MeasurementStatus.MEASURED, estimated_outer_diameter_mm=round(diameter_mm, 1), estimated_gap_mm=round(gap_mm, 1), quality_score=max(0.0, quality), pixels_per_mm=calibration.pixels_per_mm, suggested_nominal_size=suggestion, gap_range_status=_gap_status(gap_mm), limitations=list(LIMITATIONS), retake_reasons=[])
+    quality = round(
+        calibration.quality_score * 0.7 + line_score * 0.3 - (0.12 if ambiguity else 0.0), 3
+    )
+    return MeasurementResponse(
+        status=MeasurementStatus.MEASURED,
+        estimated_outer_diameter_mm=round(diameter_mm, 1),
+        estimated_gap_mm=round(gap_mm, 1),
+        quality_score=max(0.0, quality),
+        pixels_per_mm=calibration.pixels_per_mm,
+        suggested_nominal_size=suggestion,
+        gap_range_status=_gap_status(gap_mm),
+        limitations=list(LIMITATIONS),
+        retake_reasons=[],
+    )
 
 
 def _valid_point(point: ImagePoint, width: int, height: int) -> bool:
-    return math.isfinite(point.x) and math.isfinite(point.y) and 0 <= point.x < width and 0 <= point.y < height
+    return (
+        math.isfinite(point.x)
+        and math.isfinite(point.y)
+        and 0 <= point.x < width
+        and 0 <= point.y < height
+    )
 
 
 def _distance(start: ImagePoint, end: ImagePoint) -> float:
@@ -57,7 +97,11 @@ def _distance(start: ImagePoint, end: ImagePoint) -> float:
 
 
 def _suggest_size(diameter_mm: float) -> tuple[NominalPipeSize | None, bool]:
-    candidates = [(NominalPipeSize.HALF, HALF_INCH_OD_MM), (NominalPipeSize.THREE_QUARTER, THREE_QUARTER_OD_MM), (NominalPipeSize.ONE, ONE_INCH_OD_MM)]
+    candidates = [
+        (NominalPipeSize.HALF, HALF_INCH_OD_MM),
+        (NominalPipeSize.THREE_QUARTER, THREE_QUARTER_OD_MM),
+        (NominalPipeSize.ONE, ONE_INCH_OD_MM),
+    ]
     ranked = sorted((abs(diameter_mm - target), size) for size, target in candidates)
     if ranked[0][0] > SIZE_TOLERANCE_MM or (len(ranked) > 1 and ranked[1][0] - ranked[0][0] < 0.5):
         return None, True
@@ -73,4 +117,14 @@ def _gap_status(gap_mm: float) -> GapRangeStatus:
 
 
 def _retake(reasons: list[str], quality: float) -> MeasurementResponse:
-    return MeasurementResponse(status=MeasurementStatus.NEEDS_RETAKE, estimated_outer_diameter_mm=None, estimated_gap_mm=None, quality_score=quality, pixels_per_mm=None, suggested_nominal_size=None, gap_range_status=GapRangeStatus.UNKNOWN, limitations=list(LIMITATIONS), retake_reasons=reasons)
+    return MeasurementResponse(
+        status=MeasurementStatus.NEEDS_RETAKE,
+        estimated_outer_diameter_mm=None,
+        estimated_gap_mm=None,
+        quality_score=quality,
+        pixels_per_mm=None,
+        suggested_nominal_size=None,
+        gap_range_status=GapRangeStatus.UNKNOWN,
+        limitations=list(LIMITATIONS),
+        retake_reasons=reasons,
+    )

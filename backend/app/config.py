@@ -17,6 +17,17 @@ class AnalysisSettings:
     repair_minimum_confidence: float
 
 
+@dataclass(frozen=True)
+class SupplierSettings:
+    """Bounded configuration for the optional, server-side OSM lookup."""
+
+    enabled: bool
+    user_agent: str
+    cache_ttl_seconds: int
+    request_timeout_seconds: float
+    nominatim_min_interval_seconds: float
+
+
 def get_analysis_settings() -> AnalysisSettings:
     """Read non-persisted process configuration without exposing secrets."""
     raw_mode = os.getenv("ANALYSIS_MODE", "mock").lower()
@@ -36,3 +47,20 @@ def get_analysis_settings() -> AnalysisSettings:
         gemini_model=model,
         repair_minimum_confidence=repair_minimum_confidence,
     )
+
+
+def get_supplier_settings() -> SupplierSettings:
+    """Read supplier lookup settings without collecting or persisting locations."""
+    enabled = os.getenv("SUPPLIER_SEARCH_ENABLED", "false").lower() == "true"
+    user_agent = os.getenv(
+        "SUPPLIER_SEARCH_USER_AGENT", "PipePatchAI-FinalYearProject/0.1 (local development)"
+    )
+    try:
+        ttl = int(os.getenv("SUPPLIER_SEARCH_CACHE_TTL_SECONDS", "900"))
+        timeout = float(os.getenv("SUPPLIER_SEARCH_TIMEOUT_SECONDS", "5"))
+        interval = float(os.getenv("SUPPLIER_SEARCH_NOMINATIM_MIN_INTERVAL_SECONDS", "1"))
+    except ValueError as error:
+        raise ValueError("Supplier search configuration is invalid.") from error
+    if ttl < 0 or timeout <= 0 or interval < 1:
+        raise ValueError("Supplier search configuration is invalid.")
+    return SupplierSettings(enabled, user_agent, ttl, timeout, interval)

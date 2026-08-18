@@ -44,7 +44,9 @@ async def validate_upload(image: UploadFile) -> ValidatedImage:
 
         detected_content_type = signature_content_type(header)
         if detected_content_type is None or detected_content_type != declared_content_type:
-            raise HTTPException(status_code=415, detail="The image format does not match its declared type.")
+            raise HTTPException(
+                status_code=415, detail="The image format does not match its declared type."
+            )
 
         chunks = [header]
         total_bytes = len(header)

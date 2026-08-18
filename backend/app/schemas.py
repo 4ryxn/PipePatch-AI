@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class HealthResponse(BaseModel):
@@ -196,3 +196,34 @@ class PartsEstimateResponse(BaseModel):
     ]
     explanation: str
     reasons: list[str]
+
+
+class SupplierSearchRequest(PartsEstimateRequest):
+    """A user-triggered general-area search; no exact address is required."""
+
+    area: str = Field(min_length=2, max_length=120)
+    radius_km: float = Field(default=5, ge=0.1, le=10)
+    max_results: int = Field(default=10, ge=1, le=10)
+
+
+class SupplierLead(BaseModel):
+    name: str
+    category: str
+    public_address: str | None
+    latitude: float
+    longitude: float
+    distance_km: float
+    directions_url: str
+    availability_status: Literal["unknown"] = "unknown"
+    availability_message: str = "Availability: unknown — contact this supplier to confirm compatible parts and in-store stock."
+
+
+class SupplierSearchResponse(BaseModel):
+    decision: RepairDecision
+    suppliers: list[SupplierLead]
+    reasons: list[str]
+    fallback_search_url: str
+    fallback_message: str | None
+    provider_enabled: bool
+    attribution: str = "© OpenStreetMap contributors"
+    data_disclaimer: str = "Public OpenStreetMap points are approximate. Verify location, hours, stock, and compatibility directly."

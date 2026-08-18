@@ -24,6 +24,10 @@ The calibration endpoint is deterministic OpenCV only. Its ArUco marker result e
 
 Assisted measurement may convert only user-selected image points with a server-re-detected marker scale. Treat the result as an estimate and advisory context; it must never preselect or authorize repair-confirmation answers. Deterministic repair guidance may be shown only after every assessment and measurement gate passes; product labels and local requirements always override app wording.
 
+## Supplier-discovery constraints
+
+The optional supplier flow is available only after deterministic eligibility, measured in-range gap, and matching explicit/measured size gates pass. It is a user-triggered, server-side lookup of a general city/area/postcode using public OSM data. Never send exact addresses, add client-side provider calls, autocomplete, background location, reverse-geocoding grids, scraping, tracking, or persistence. Results are approximate public POIs: never claim stock, price, hours, availability, or compatibility. Respect the configured Nominatim rate limit, descriptive User-Agent, short process-local cache, timeouts, OSM attribution, and category-search fallback.
+
 ## Current exclusions
 
-Do not add brands, pricing, suppliers, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized deterministic guidance must fail closed for uncertainty or unsupported cases.
+Do not add brands, live pricing, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized deterministic guidance must fail closed for uncertainty or unsupported cases.

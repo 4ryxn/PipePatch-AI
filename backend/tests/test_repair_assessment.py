@@ -4,7 +4,34 @@ from app.main import app
 
 client = TestClient(app)
 
-VALID = {"analysis": {"is_mock": False, "supported_case": True, "material": "PVC", "pipe_schedule": "Schedule 40", "nominal_size": None, "damage_type": "clean cut", "confidence": 0.75, "summary": "", "evidence": [], "unknowns": [], "safety_flags": [], "next_action": ""}, "confirmations": {"line_type": "outdoor_irrigation", "outdoor_irrigation": "yes", "water_supply_shut_off": "yes", "pvc_schedule_40_marking": "yes", "nominal_size": "3/4", "clean_transverse_cut": "yes", "no_additional_damage": "yes", "straight_section": "yes", "safely_away_from_components": "yes", "pipe_ends_accessible": "yes"}}
+VALID = {
+    "analysis": {
+        "is_mock": False,
+        "supported_case": True,
+        "material": "PVC",
+        "pipe_schedule": "Schedule 40",
+        "nominal_size": None,
+        "damage_type": "clean cut",
+        "confidence": 0.75,
+        "summary": "",
+        "evidence": [],
+        "unknowns": [],
+        "safety_flags": [],
+        "next_action": "",
+    },
+    "confirmations": {
+        "line_type": "outdoor_irrigation",
+        "outdoor_irrigation": "yes",
+        "water_supply_shut_off": "yes",
+        "pvc_schedule_40_marking": "yes",
+        "nominal_size": "3/4",
+        "clean_transverse_cut": "yes",
+        "no_additional_damage": "yes",
+        "straight_section": "yes",
+        "safely_away_from_components": "yes",
+        "pipe_ends_accessible": "yes",
+    },
+}
 
 
 def test_repair_assessment_returns_only_generic_checklist_for_eligible_case() -> None:
