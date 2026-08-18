@@ -6,7 +6,8 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from app.analysis import ValidatedImage, validate_upload
 from app.config import get_analysis_settings
-from app.schemas import AnalysisResponse, HealthResponse
+from app.repair_rules import assess_repair
+from app.schemas import AnalysisResponse, HealthResponse, RepairAssessmentRequest, RepairAssessmentResponse
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
@@ -50,3 +51,13 @@ def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:
         safety_flags=["Do not use this demo result to perform a repair."],
         next_action="Use this screen only to verify the local upload flow.",
     )
+
+
+@app.post("/api/v1/repair-assessment", response_model=RepairAssessmentResponse, tags=["assessment"])
+def repair_assessment(request: RepairAssessmentRequest) -> RepairAssessmentResponse:
+    """Apply deterministic safety gates without a provider or network call."""
+    try:
+        settings = get_analysis_settings()
+    except ValueError as error:
+        raise HTTPException(status_code=503, detail="Assessment is not configured correctly.") from error
+    return assess_repair(request.analysis, request.confirmations, settings.repair_minimum_confidence)

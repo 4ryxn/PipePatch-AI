@@ -1,6 +1,6 @@
 # PipePatch AI
 
-PipePatch AI is a narrowly scoped mobile app for preparing a pipe photo, uploading it once after confirmation, and displaying observation-only analysis. The backend defaults to offline mock mode and can opt into backend-only Gemini vision analysis. It has no database, authentication, repair advice, parts, prices, or supplier features.
+PipePatch AI is a narrowly scoped mobile app for preparing a pipe photo, uploading it once after confirmation, and displaying observation-only analysis. The backend defaults to offline mock mode and can opt into backend-only Gemini vision analysis. Live results may proceed to explicit safety confirmations; deterministic Python rules can then authorize a generic parts checklist for one narrow case. It has no database, authentication, numbered repair steps, brands, prices, or supplier features.
 
 ## Repository layout
 
@@ -52,6 +52,7 @@ Phase 2 accepts JPG, PNG, and WebP photos with a minimum dimension of 960 px. Im
 
 - `ANALYSIS_MODE=mock` is the default and is used by automated tests and offline demonstrations. Results are explicitly labelled “Demo analysis”.
 - To enable live vision observations, set `ANALYSIS_MODE=gemini`, choose `GEMINI_MODEL` (default: `gemini-3.5-flash-lite`), and set `GEMINI_API_KEY` only in `backend/.env` or another server-side secret manager.
+- `REPAIR_MINIMUM_CONFIDENCE=0.75` is the conservative, configurable default for the deterministic generic-parts eligibility gate. Calibrate it against the project evaluation dataset before changing it.
 
 Never paste a Gemini API key into source code, mobile configuration, Git, or chat. The mobile application receives only the typed analysis response and has no Gemini dependency or key. Live requests send validated in-memory bytes directly to Gemini and do not use the Gemini Files API, tools, grounding, search, URL context, or conversation history. API usage can incur model/image-token charges and is subject to account-specific rate limits, so consult current Gemini model and pricing documentation rather than assuming a fixed cost. Test with mock mode first and plan retries/backoff for rate limiting.
 
@@ -91,4 +92,4 @@ npm test
 
 ## Safety boundary
 
-The eventual MVP is limited to outdoor irrigation Schedule-40 PVC with clean transverse cuts in 1/2 in, 3/4 in, and 1 in sizes. Any unsupported or uncertain case must stop without producing repair guidance. See `AGENTS.md` for implementation constraints.
+The MVP is limited to outdoor irrigation Schedule-40 PVC with clean transverse cuts in 1/2 in, 3/4 in, and 1 in sizes. Gemini only observes; the backend's deterministic assessment rules require a live result with at least 0.75 confidence and every explicit safety confirmation before showing the generic parts checklist. Mock results, unknown answers, unsupported line types, active water supply, or any uncertain or failed gate stop guidance. The app does not provide numbered repair steps. See `AGENTS.md` for implementation constraints.

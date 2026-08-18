@@ -10,10 +10,14 @@ import { Screen } from "./src/components/Screen";
 import { apiBaseUrl } from "./src/config/api";
 import { CameraCaptureScreen } from "./src/screens/CameraCaptureScreen";
 import { AnalysisResultScreen } from "./src/screens/AnalysisResultScreen";
+import { RepairAssessmentScreen } from "./src/screens/RepairAssessmentScreen";
+import { RepairConfirmationScreen } from "./src/screens/RepairConfirmationScreen";
 import { isRequestCancellation, requestAnalysis } from "./src/services/analysisService";
+import { requestRepairAssessment } from "./src/services/repairAssessmentService";
 import { candidateFromAsset, cleanupSelectedImage, normalizeImage } from "./src/services/photoService";
 import { colors } from "./src/theme";
 import type { ImageCandidate, SelectedImage } from "./src/types/image";
+import type { RepairConfirmations } from "./src/types/repair";
 import { permissionState, shouldOfferSettings, type PermissionViewState } from "./src/utils/captureController";
 import { validateImage } from "./src/utils/imageValidation";
 import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
@@ -35,13 +39,16 @@ export default function App(): React.JSX.Element {
   const imageRef = useRef<SelectedImage | null>(null);
   const analysisAbort = useRef<AbortController | null>(null);
   const analysisInFlight = useRef(false);
+  const assessmentAbort = useRef<AbortController | null>(null);
+  const assessmentInFlight = useRef(false);
+  const [confirmations, setConfirmations] = useState<Partial<RepairConfirmations>>({});
 
   useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
     void checkHealth(setHealthState, controller.signal, mounted);
-    return () => { mounted.current = false; controller.abort(); analysisAbort.current?.abort(); void cleanupSelectedImage(imageRef.current); };
+    return () => { mounted.current = false; controller.abort(); analysisAbort.current?.abort(); assessmentAbort.current?.abort(); void cleanupSelectedImage(imageRef.current); };
   }, []);
 
   const invalidate = (): number => ++operation.current;
@@ -111,8 +118,15 @@ export default function App(): React.JSX.Element {
     dispatch({ type: "CANCEL_ANALYSIS", operationId: id });
     setSubmitting(false);
   };
+  const startAssessment = (retry: boolean): void => {
+    if (!flow.analysis || flow.analysis.is_mock || assessmentInFlight.current || !isComplete(confirmations)) return;
+    const id = invalidate(); const controller = new AbortController(); assessmentAbort.current = controller; assessmentInFlight.current = true;
+    dispatch(retry ? { type: "RETRY_ASSESSMENT", operationId: id } : { type: "BEGIN_ASSESSMENT", operationId: id });
+    void requestRepairAssessment({ analysis: flow.analysis, confirmations: confirmations as RepairConfirmations }, controller.signal).then((assessment) => { if (mounted.current && operation.current === id) dispatch({ type: "ASSESSMENT_SUCCESS", operationId: id, assessment }); }).catch((reason: unknown) => { if (!isRequestCancellation(reason) && mounted.current && operation.current === id) dispatch({ type: "ASSESSMENT_FAILURE", operationId: id }); }).finally(() => { if (operation.current === id) assessmentInFlight.current = false; });
+  };
+  const cancelAssessment = (): void => { const id = operation.current; assessmentAbort.current?.abort(); assessmentInFlight.current = false; const nextOperationId = invalidate(); dispatch({ type: "CANCEL_ASSESSMENT", operationId: id, nextOperationId }); };
   const replace = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "REPLACE", operationId: id }); };
-  const restart = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "RESET", operationId: id }); };
+  const restart = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); setConfirmations({}); dispatch({ type: "RESET", operationId: id }); };
 
   if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
   return <SafeAreaProvider><Screen><StatusBar style="dark" />
@@ -122,7 +136,11 @@ export default function App(): React.JSX.Element {
     {flow.screen === "review" && flow.image && <Review image={flow.image} onReplace={replace} onConfirm={() => { dispatch({ type: "CONFIRM" }); startAnalysis(false); }} />}
     {(flow.screen === "ready" || flow.screen === "uploading") && <Uploading onCancel={cancelAnalysis} />}
     {flow.screen === "analysis_error" && <AnalysisError onRetry={() => startAnalysis(true)} onReplace={replace} />}
-    {flow.screen === "result" && flow.analysis && <AnalysisResultScreen analysis={flow.analysis} onStartOver={restart} />}
+    {flow.screen === "result" && flow.analysis && <AnalysisResultScreen analysis={flow.analysis} onStartOver={restart} onContinue={flow.analysis.is_mock ? undefined : () => dispatch({ type: "OPEN_CONFIRMATIONS" })} />}
+    {flow.screen === "confirmations" && <RepairConfirmationScreen value={confirmations} onChange={setConfirmations} onSubmit={() => startAssessment(false)} />}
+    {flow.screen === "assessing" && <AssessmentLoading onCancel={cancelAssessment} />}
+    {flow.screen === "assessment_error" && <AssessmentError onRetry={() => startAssessment(true)} onRestart={restart} />}
+    {flow.screen === "assessment" && flow.assessment && <RepairAssessmentScreen assessment={flow.assessment} onRestart={restart} />}
   </Screen></SafeAreaProvider>;
 }
 
@@ -133,5 +151,8 @@ function Review({ image, onReplace, onConfirm }: { image: SelectedImage; onRepla
 function Uploading({ onCancel }: { onCancel: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>ANALYSIS</Text><Text style={s.title}>Uploading your photo</Text><Loading label="Sending the confirmed photo to the configured backend…" /><View style={s.card}><Text style={s.body}>This is a one-time upload. The backend does not save the image, and the result is limited to observations and safety flags.</Text></View><View style={s.spacer} /><AppButton label="Cancel upload" variant="secondary" onPress={onCancel} /></>; }
 function AnalysisError({ onRetry, onReplace }: { onRetry: () => void; onReplace: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>ANALYSIS</Text><Text style={s.title}>Analysis unavailable</Text><View style={s.errorCard}><Text style={s.errorTitle}>No analysis was completed</Text><Text style={s.body}>The backend could not complete the upload. Your photo remains only in this active app flow.</Text></View><View style={s.spacer} /><AppButton label="Retry upload" onPress={onRetry} /><AppButton label="Choose another photo" variant="secondary" onPress={onReplace} /></>; }
 function Loading({ label }: { label: string }): React.JSX.Element { return <View style={s.loading}><ActivityIndicator color={colors.green} /><Text style={s.body}>{label}</Text></View>; }
+function AssessmentLoading({ onCancel }: { onCancel: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>SAFETY ASSESSMENT</Text><Text style={s.title}>Checking confirmations</Text><Loading label="Applying deterministic safety rules…" /><View style={s.spacer} /><AppButton label="Cancel assessment" variant="secondary" onPress={onCancel} /></>; }
+function AssessmentError({ onRetry, onRestart }: { onRetry: () => void; onRestart: () => void }): React.JSX.Element { return <><Text style={s.eyebrow}>SAFETY ASSESSMENT</Text><Text style={s.title}>Assessment unavailable</Text><View style={s.errorCard}><Text style={s.errorTitle}>No parts guidance was shown</Text><Text style={s.body}>The safety assessment could not be completed. Try again or start over.</Text></View><View style={s.spacer} /><AppButton label="Retry assessment" onPress={onRetry} /><AppButton label="Start over" variant="secondary" onPress={onRestart} /></>; }
+function isComplete(value: Partial<RepairConfirmations>): value is RepairConfirmations { return value.line_type !== undefined && value.outdoor_irrigation !== undefined && value.water_supply_shut_off !== undefined && value.pvc_schedule_40_marking !== undefined && value.nominal_size !== undefined && value.clean_transverse_cut !== undefined && value.no_additional_damage !== undefined && value.straight_section !== undefined && value.safely_away_from_components !== undefined && value.pipe_ends_accessible !== undefined; }
 async function checkHealth(setHealth: (state: HealthState) => void, signal: AbortSignal, mounted: { current: boolean }): Promise<void> { try { const response = await fetch(`${apiBaseUrl}/health`, { signal }); const body = (await response.json()) as HealthResponse; if (mounted.current) setHealth(response.ok && body.status === "ok" ? "healthy" : "unavailable"); } catch { if (mounted.current && !signal.aborted) setHealth("unavailable"); } }
 const s = StyleSheet.create({ eyebrow: { color: colors.limeDark, fontSize: 13, fontWeight: "800", letterSpacing: 1.2 }, title: { color: colors.green, flexShrink: 1, fontSize: 34, fontWeight: "800", lineHeight: 40 }, body: { color: colors.ink, flexShrink: 1, fontSize: 16, lineHeight: 23 }, card: { backgroundColor: colors.white, borderColor: colors.creamDark, borderRadius: 16, borderWidth: 1, gap: 8, padding: 18 }, cardTitle: { color: colors.green, fontSize: 18, fontWeight: "800" }, list: { color: colors.ink, fontSize: 16, lineHeight: 27 }, ok: { color: colors.greenLight, fontWeight: "700" }, warning: { color: colors.danger, fontWeight: "700" }, errorCard: { backgroundColor: "#F9E5E0", borderColor: colors.danger, borderRadius: 14, borderWidth: 1, gap: 10, padding: 16 }, errorTitle: { color: colors.danger, fontSize: 17, fontWeight: "800" }, preview: { backgroundColor: colors.creamDark, borderRadius: 16, width: "100%" }, caption: { color: colors.muted, fontSize: 13, lineHeight: 19 }, loading: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 10 }, spacer: { flex: 1, minHeight: 12 } });

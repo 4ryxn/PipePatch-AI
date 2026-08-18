@@ -31,7 +31,12 @@ def client_factory(client: FakeClient):
 
 
 def settings() -> AnalysisSettings:
-    return AnalysisSettings(mode="gemini", gemini_api_key="test-key", gemini_model="test-model")
+    return AnalysisSettings(
+        mode="gemini",
+        gemini_api_key="test-key",
+        gemini_model="test-model",
+        repair_minimum_confidence=0.75,
+    )
 
 
 def image() -> ValidatedImage:
@@ -68,7 +73,12 @@ async def test_gemini_mode_uses_bytes_and_a_structured_schema() -> None:
 
 @pytest.mark.anyio
 async def test_gemini_mode_requires_a_server_key() -> None:
-    missing_key = AnalysisSettings(mode="gemini", gemini_api_key=None, gemini_model="test-model")
+    missing_key = AnalysisSettings(
+        mode="gemini",
+        gemini_api_key=None,
+        gemini_model="test-model",
+        repair_minimum_confidence=0.75,
+    )
 
     with pytest.raises(GeminiServiceError, match="not configured") as error:
         await analyze_with_gemini(image(), missing_key)

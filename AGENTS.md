@@ -18,8 +18,8 @@
 
 ## Product safety boundary
 
-The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Future analysis must stop and decline repair advice for any unsupported, ambiguous, or low-confidence case. Do not broaden this scope without explicit product approval.
+The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts, and nominal sizes 1/2 in, 3/4 in, or 1 in. Gemini supplies observations only; deterministic Python rules, backed by explicit user confirmations, exclusively authorize or refuse the generic parts checklist. Any unsupported, ambiguous, or low-confidence case must stop and decline guidance. Do not broaden this scope without explicit product approval.
 
 ## Current exclusions
 
-Do not add repair recommendations, authentication, cloud image storage, or data persistence in this phase. Live analysis must return observations only and fail closed for uncertainty or unsupported cases.
+Do not add numbered repair instructions, brands, pricing, suppliers, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized generic parts checklist must fail closed for uncertainty or unsupported cases.

@@ -14,6 +14,7 @@ class AnalysisSettings:
     mode: AnalysisMode
     gemini_api_key: str | None
     gemini_model: str
+    repair_minimum_confidence: float
 
 
 def get_analysis_settings() -> AnalysisSettings:
@@ -23,4 +24,15 @@ def get_analysis_settings() -> AnalysisSettings:
         raise ValueError("ANALYSIS_MODE must be mock or gemini.")
     key = os.getenv("GEMINI_API_KEY") or None
     model = os.getenv("GEMINI_MODEL", DEFAULT_GEMINI_MODEL)
-    return AnalysisSettings(mode=cast(AnalysisMode, raw_mode), gemini_api_key=key, gemini_model=model)
+    try:
+        repair_minimum_confidence = float(os.getenv("REPAIR_MINIMUM_CONFIDENCE", "0.75"))
+    except ValueError as error:
+        raise ValueError("REPAIR_MINIMUM_CONFIDENCE must be a number between 0 and 1.") from error
+    if not 0 <= repair_minimum_confidence <= 1:
+        raise ValueError("REPAIR_MINIMUM_CONFIDENCE must be a number between 0 and 1.")
+    return AnalysisSettings(
+        mode=cast(AnalysisMode, raw_mode),
+        gemini_api_key=key,
+        gemini_model=model,
+        repair_minimum_confidence=repair_minimum_confidence,
+    )
