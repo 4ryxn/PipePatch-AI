@@ -1,0 +1,20 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      ANALYSIS_MODE: mock
+      AUTH_ENABLED: "false"
+      SUPPLIER_SEARCH_ENABLED: "false"
+      DATABASE_URL: sqlite:////tmp/pipepatch-ci.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.14", cache: pip }
+      - run: python -m pip install ./backend[dev]
+      - run: cd backend && python -m pytest && python -m ruff check . && python -m mypy app
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: mobile/package-lock.json }
+      - run: cd mobile && npm ci && npm run lint && npm run typecheck && npm test
+      - run: git diff --check

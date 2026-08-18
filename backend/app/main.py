@@ -21,7 +21,7 @@ from app.auth import (
     successful_login,
     verify_password,
 )
-from app.config import get_analysis_settings, get_auth_settings, get_supplier_settings
+from app.config import get_analysis_settings, get_auth_settings, get_supplier_settings, validate_production_environment
 from app.database import RepairHistory, User, make_session_factory
 from app.repair_rules import assess_repair
 from app.repair_guidance import create_guidance
@@ -51,6 +51,7 @@ from app.schemas import (
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
+validate_production_environment()
 _supplier_services: dict[object, SupplierSearchService] = {}
 _bearer = HTTPBearer(auto_error=False)
 _session_factory: sessionmaker[Session] | None = None
@@ -101,6 +102,13 @@ def account_response(user: User) -> AccountResponse:
 @app.get("/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     """Return a minimal readiness response without external dependencies."""
+    return HealthResponse(status="ok")
+
+
+@app.get("/readiness", response_model=HealthResponse, tags=["system"])
+def readiness() -> HealthResponse:
+    """Configuration-only readiness check; it never calls Gemini or reads images."""
+    validate_production_environment()
     return HealthResponse(status="ok")
 
 

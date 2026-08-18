@@ -1,0 +1,3 @@
+# 5–7 minute demo script
+
+Start in mock mode to show local photo fallback and that no repair path unlocks. Switch only a prepared local backend to Gemini mode, capture a permitted demo image, review observation evidence, show the printed 50 mm calibration card, user point-assisted measurement, confirmations, deterministic eligibility, generic guidance, parts/quote comparison, and optional OSM supplier fallback. Show optional account save as text-only. End with a crack/unknown category and state that guidance is blocked. If Gemini, OSM, or network fails, stay in mock mode and demonstrate the explicit retry/refusal states; do not improvise repair advice.

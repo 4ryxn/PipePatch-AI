@@ -1,0 +1,5 @@
+# Deployment runbook
+
+Preflight: run backend tests, Ruff, mypy, Alembic against temporary SQLite, then mobile lint/typecheck/tests. Create Neon PostgreSQL, copy its connection string only into Render's `DATABASE_URL` secret, and set `AUTH_ENABLED=true` only with a 32+ character generated `JWT_SECRET_KEY`. On Render configure `PIPEPATCH_ENV=production`, `ANALYSIS_MODE=mock` or `gemini` plus `GEMINI_API_KEY`, and leave supplier discovery disabled unless bounded low-volume use is approved. Deploy using `render.yaml`; the start script migrates then serves `/readiness`.
+
+After `/readiness` returns `ok`, set `EXPO_PUBLIC_API_BASE_URL=https://YOUR-RENDER-HOST` locally for the build only. Run `cd mobile && npx eas build --profile preview --platform android`; do not put secrets in Expo variables. Roll back by selecting a previously verified Git tag and redeploying it. If migration fails, stop the service, inspect Render logs without copying secrets, restore the prior release/database backup using Neon controls, and redeploy the prior tag.

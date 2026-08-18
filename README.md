@@ -1,5 +1,11 @@
 # PipePatch AI
 
+## Final architecture and deployment
+
+The project consists of an Expo SDK 54 Android client and a FastAPI backend. The backend can be hosted on Render, with Neon PostgreSQL used only when optional accounts/history are enabled. Production setup, secret checklist, rollback, and EAS preview APK instructions are in the [deployment runbook](docs/deployment-runbook.md). Deployment URLs and screenshots are intentionally placeholders until Aryan performs the manual deployment.
+
+Features include local photo preparation, observation-only Gemini analysis, deterministic damage/repair gates, marker calibration, assisted measurement, generic guarded guidance/parts, optional supplier discovery, and opt-in text-only history. It remains limited to the documented outdoor Schedule-40 PVC clean-cut case. See the final [project report](docs/final-project-report.md) and [demo script](docs/demo-script.md).
+
 PipePatch AI is a narrowly scoped mobile app for preparing a pipe photo, uploading it once after confirmation, and displaying observation-only analysis. The backend defaults to offline mock mode and can opt into backend-only Gemini vision analysis. Live results may proceed to explicit safety confirmations; deterministic Python rules can then authorize a generic parts checklist for one narrow case. It has no database, authentication, numbered repair steps, brands, prices, or supplier features.
 
 ## Repository layout

@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: pipepatch-ai-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install .[dev]
+    startCommand: sh scripts/start-production.sh
+    healthCheckPath: /readiness
+    envVars:
+      - key: PIPEPATCH_ENV
+        value: production
+      - key: ANALYSIS_MODE
+        value: mock
+      - key: AUTH_ENABLED
+        value: "false"
+      - key: SUPPLIER_SEARCH_ENABLED
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

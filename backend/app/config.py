@@ -37,6 +37,21 @@ class AuthSettings:
     access_token_minutes: int
 
 
+def validate_production_environment() -> None:
+    """Fail closed before a production server starts; never echo configuration values."""
+    if os.getenv("PIPEPATCH_ENV", "development") != "production":
+        return
+    analysis = get_analysis_settings()
+    auth = get_auth_settings()
+    if analysis.mode == "gemini" and not analysis.gemini_api_key:
+        raise ValueError("Production Gemini analysis requires server configuration.")
+    if auth.enabled and (not auth.database_url.startswith("postgresql") or not auth.jwt_secret_key):
+        raise ValueError("Production authentication requires PostgreSQL and a strong server secret.")
+    origins = os.getenv("ALLOWED_ORIGINS", "")
+    if origins.strip() == "*":
+        raise ValueError("Wildcard browser origins are not allowed in production.")
+
+
 def get_analysis_settings() -> AnalysisSettings:
     """Read non-persisted process configuration without exposing secrets."""
     raw_mode = os.getenv("ANALYSIS_MODE", "mock").lower()
