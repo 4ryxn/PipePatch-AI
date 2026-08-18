@@ -111,3 +111,34 @@ class CalibrationResponse(BaseModel):
     retake_reasons: list[str]
     capture_tips: list[str]
     scope_note: str
+
+
+class MeasurementStatus(str, Enum):
+    MEASURED = "measured"
+    NEEDS_RETAKE = "needs_retake"
+
+
+class GapRangeStatus(str, Enum):
+    WITHIN_MVP_RANGE = "within_mvp_range"
+    BELOW_MVP_RANGE = "below_mvp_range"
+    ABOVE_MVP_RANGE = "above_mvp_range"
+    UNKNOWN = "unknown"
+
+
+class ImagePoint(BaseModel):
+    x: float
+    y: float
+
+
+class MeasurementResponse(BaseModel):
+    status: MeasurementStatus
+    estimated_outer_diameter_mm: float | None
+    estimated_gap_mm: float | None
+    quality_score: float
+    pixels_per_mm: float | None
+    marker_id: Literal[23] = 23
+    known_marker_side_mm: Literal[50] = 50
+    suggested_nominal_size: NominalPipeSize | None
+    gap_range_status: GapRangeStatus
+    limitations: list[str]
+    retake_reasons: list[str]

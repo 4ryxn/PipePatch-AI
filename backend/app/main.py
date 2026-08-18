@@ -2,13 +2,14 @@
 
 from typing import Annotated
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from app.analysis import ValidatedImage, validate_upload
 from app.calibration import detect_calibration
+from app.measurements import measure_image
 from app.config import get_analysis_settings
 from app.repair_rules import assess_repair
-from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, RepairAssessmentRequest, RepairAssessmentResponse
+from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, ImagePoint, MeasurementResponse, RepairAssessmentRequest, RepairAssessmentResponse
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
@@ -40,6 +41,18 @@ async def analyze(image: Annotated[UploadFile, File(description="One pipe photo"
 async def calibration(image: Annotated[UploadFile, File(description="One calibration photo")]) -> CalibrationResponse:
     """Return an ephemeral marker scale result without calling Gemini."""
     return detect_calibration(await validate_upload(image))
+
+
+@app.post("/api/v1/measurements", response_model=MeasurementResponse, tags=["calibration"])
+async def measurements(
+    image: Annotated[UploadFile, File(description="One calibration photo")],
+    diameter_start_x: Annotated[float, Form()], diameter_start_y: Annotated[float, Form()],
+    diameter_end_x: Annotated[float, Form()], diameter_end_y: Annotated[float, Form()],
+    gap_start_x: Annotated[float, Form()], gap_start_y: Annotated[float, Form()],
+    gap_end_x: Annotated[float, Form()], gap_end_y: Annotated[float, Form()],
+) -> MeasurementResponse:
+    """Measure only user-selected segments after server-side marker re-detection."""
+    return measure_image(await validate_upload(image), ImagePoint(x=diameter_start_x, y=diameter_start_y), ImagePoint(x=diameter_end_x, y=diameter_end_y), ImagePoint(x=gap_start_x, y=gap_start_y), ImagePoint(x=gap_end_x, y=gap_end_y))
 
 
 def mock_analysis(_image: ValidatedImage) -> AnalysisResponse:

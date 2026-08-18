@@ -14,6 +14,7 @@ import { RepairAssessmentScreen } from "./src/screens/RepairAssessmentScreen";
 import { RepairConfirmationScreen } from "./src/screens/RepairConfirmationScreen";
 import { CalibrationGuideScreen } from "./src/screens/CalibrationGuideScreen";
 import { CalibrationResultScreen } from "./src/screens/CalibrationResultScreen";
+import { AssistedMeasurementScreen } from "./src/screens/AssistedMeasurementScreen";
 import { isRequestCancellation, requestAnalysis } from "./src/services/analysisService";
 import { requestRepairAssessment } from "./src/services/repairAssessmentService";
 import { requestCalibration } from "./src/services/calibrationService";
@@ -47,6 +48,8 @@ export default function App(): React.JSX.Element {
   const calibrationAbort = useRef<AbortController | null>(null);
   const calibrationInFlight = useRef(false);
   const [confirmations, setConfirmations] = useState<Partial<RepairConfirmations>>({});
+  const [measurementOpen, setMeasurementOpen] = useState(false);
+  const [measurementSuggestion, setMeasurementSuggestion] = useState<"1/2" | "3/4" | "1" | null>(null);
 
   useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
   useEffect(() => {
@@ -137,6 +140,7 @@ export default function App(): React.JSX.Element {
   const restart = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); setConfirmations({}); dispatch({ type: "RESET", operationId: id }); };
 
   if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
+  if (measurementOpen && flow.image) return <SafeAreaProvider><Screen><AssistedMeasurementScreen image={flow.image} onBack={() => setMeasurementOpen(false)} onRetake={replace} onSuggestion={setMeasurementSuggestion} /></Screen></SafeAreaProvider>;
   return <SafeAreaProvider><Screen><StatusBar style="dark" />
     {flow.screen === "home" && <Home healthState={healthState} onStart={() => dispatch({ type: "START" })} />}
     {flow.screen === "guidance" && <Guidance onContinue={() => dispatch({ type: "SHOW_SOURCE" })} />}
@@ -148,8 +152,8 @@ export default function App(): React.JSX.Element {
     {flow.screen === "calibration_guide" && <CalibrationGuideScreen onCapture={beginCalibrationCapture} onBack={() => dispatch({ type: "RETURN_TO_RESULT" })} />}
     {flow.screen === "calibrating" && <AssessmentLoading onCancel={cancelCalibration} />}
     {flow.screen === "calibration_error" && <AssessmentError onRetry={() => startCalibration(true)} onRestart={replace} />}
-    {flow.screen === "calibration_result" && flow.calibration && <CalibrationResultScreen calibration={flow.calibration} onRetake={replace} onDone={() => dispatch({ type: "RETURN_TO_RESULT" })} />}
-    {flow.screen === "confirmations" && <RepairConfirmationScreen value={confirmations} onChange={setConfirmations} onSubmit={() => startAssessment(false)} />}
+    {flow.screen === "calibration_result" && flow.calibration && <CalibrationResultScreen calibration={flow.calibration} onRetake={replace} onDone={() => dispatch({ type: "RETURN_TO_RESULT" })} onMeasure={() => setMeasurementOpen(true)} />}
+    {flow.screen === "confirmations" && <RepairConfirmationScreen value={confirmations} suggestedSize={measurementSuggestion} onChange={setConfirmations} onSubmit={() => startAssessment(false)} />}
     {flow.screen === "assessing" && <AssessmentLoading onCancel={cancelAssessment} />}
     {flow.screen === "assessment_error" && <AssessmentError onRetry={() => startAssessment(true)} onRestart={restart} />}
     {flow.screen === "assessment" && flow.assessment && <RepairAssessmentScreen assessment={flow.assessment} onRestart={restart} />}

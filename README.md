@@ -100,6 +100,8 @@ Print [the marker card](docs/assets/pipepatch-aruco-marker-23-50mm.svg) at **100
 
 The calibration endpoint detects only ArUco `DICT_4X4_50`, marker ID `23`, and returns an estimated pixels-per-millimetre reference scale when the card is complete, large, sharp, and nearly front-on. Place the card flat beside the pipe in the same plane and photograph from above. This scale is an estimate only: Phase 4A does not measure pipe diameter, cut gap, or nominal size. Later phases must add those measurements and explicit user confirmation.
 
+Phase 4B uses user-drawn image lines with that server-verified scale to estimate visible outside diameter and cut gap. It does not prove PVC, Schedule 40, exact nominal size, or repair eligibility; any size suggestion is advisory and must still be explicitly confirmed.
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh
