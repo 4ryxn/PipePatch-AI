@@ -6,7 +6,7 @@
       "excludeFiles": "{tests/**,alembic/**,data/**}"
     }
   },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index.py" }
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/index.py" }
   ]
 }
