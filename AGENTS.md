@@ -22,8 +22,8 @@ The MVP supports only outdoor irrigation, Schedule-40 PVC, clean transverse cuts
 
 The calibration endpoint is deterministic OpenCV only. Its ArUco marker result establishes an estimated reference scale, never an automatic pipe diameter, cut-gap, nominal-size, or repair-eligibility measurement. Keep its image handling in memory only and fail closed to a retake for uncertain marker detection or quality.
 
-Assisted measurement may convert only user-selected image points with a server-re-detected marker scale. Treat the result as an estimate and advisory context; it must never preselect or authorize repair-confirmation answers.
+Assisted measurement may convert only user-selected image points with a server-re-detected marker scale. Treat the result as an estimate and advisory context; it must never preselect or authorize repair-confirmation answers. Deterministic repair guidance may be shown only after every assessment and measurement gate passes; product labels and local requirements always override app wording.
 
 ## Current exclusions
 
-Do not add numbered repair instructions, brands, pricing, suppliers, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized generic parts checklist must fail closed for uncertainty or unsupported cases.
+Do not add brands, pricing, suppliers, authentication, cloud image storage, or data persistence in this phase. The narrowly authorized deterministic guidance must fail closed for uncertainty or unsupported cases.

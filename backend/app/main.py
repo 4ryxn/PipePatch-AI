@@ -9,7 +9,8 @@ from app.calibration import detect_calibration
 from app.measurements import measure_image
 from app.config import get_analysis_settings
 from app.repair_rules import assess_repair
-from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, ImagePoint, MeasurementResponse, RepairAssessmentRequest, RepairAssessmentResponse
+from app.repair_guidance import create_guidance
+from app.schemas import AnalysisResponse, CalibrationResponse, HealthResponse, ImagePoint, MeasurementResponse, RepairAssessmentRequest, RepairAssessmentResponse, RepairGuidanceRequest, RepairGuidanceResponse
 from app.gemini import GeminiServiceError, analyze_with_gemini
 
 app = FastAPI(title="PipePatch AI API", version="0.1.0")
@@ -81,3 +82,10 @@ def repair_assessment(request: RepairAssessmentRequest) -> RepairAssessmentRespo
     except ValueError as error:
         raise HTTPException(status_code=503, detail="Assessment is not configured correctly.") from error
     return assess_repair(request.analysis, request.confirmations, settings.repair_minimum_confidence)
+
+
+@app.post("/api/v1/repair-guidance", response_model=RepairGuidanceResponse, tags=["repair"])
+def repair_guidance(request: RepairGuidanceRequest) -> RepairGuidanceResponse:
+    """Return deterministic guidance only after all independent gates pass."""
+    settings = get_analysis_settings()
+    return create_guidance(request, settings.repair_minimum_confidence)

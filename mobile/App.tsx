@@ -15,17 +15,22 @@ import { RepairConfirmationScreen } from "./src/screens/RepairConfirmationScreen
 import { CalibrationGuideScreen } from "./src/screens/CalibrationGuideScreen";
 import { CalibrationResultScreen } from "./src/screens/CalibrationResultScreen";
 import { AssistedMeasurementScreen } from "./src/screens/AssistedMeasurementScreen";
+import { RepairGuidanceScreen } from "./src/screens/RepairGuidanceScreen";
 import { isRequestCancellation, requestAnalysis } from "./src/services/analysisService";
 import { requestRepairAssessment } from "./src/services/repairAssessmentService";
 import { requestCalibration } from "./src/services/calibrationService";
+import { requestRepairGuidance } from "./src/services/repairGuidanceService";
 import { candidateFromAsset, cleanupSelectedImage, normalizeImage } from "./src/services/photoService";
 import { colors } from "./src/theme";
 import type { ImageCandidate, SelectedImage } from "./src/types/image";
 import type { RepairConfirmations } from "./src/types/repair";
+import type { MeasurementResponse } from "./src/types/measurement";
+import type { RepairGuidanceResponse } from "./src/types/repairGuidance";
 import { permissionState, shouldOfferSettings, type PermissionViewState } from "./src/utils/captureController";
 import { validateImage } from "./src/utils/imageValidation";
 import { initialPhotoFlow, photoFlowReducer } from "./src/utils/photoFlow";
 import { reviewImageHeight } from "./src/utils/responsive";
+import { guidanceBlock } from "./src/utils/guidancePolicy";
 
 type HealthState = "checking" | "healthy" | "unavailable";
 type HealthResponse = { status: "ok" };
@@ -50,6 +55,10 @@ export default function App(): React.JSX.Element {
   const [confirmations, setConfirmations] = useState<Partial<RepairConfirmations>>({});
   const [measurementOpen, setMeasurementOpen] = useState(false);
   const [measurementSuggestion, setMeasurementSuggestion] = useState<"1/2" | "3/4" | "1" | null>(null);
+  const [measurement, setMeasurement] = useState<MeasurementResponse | null>(null);
+  const [guidance, setGuidance] = useState<RepairGuidanceResponse | null>(null);
+  const [guidanceBusy, setGuidanceBusy] = useState(false);
+  const guidanceAbort = useRef<AbortController | null>(null);
 
   useEffect(() => { imageRef.current = flow.image; }, [flow.image]);
   useEffect(() => {
@@ -138,9 +147,12 @@ export default function App(): React.JSX.Element {
   const beginCalibrationCapture = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "BEGIN_CALIBRATION_CAPTURE", operationId: id }); };
   const replace = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); dispatch({ type: "REPLACE", operationId: id }); };
   const restart = (): void => { const id = invalidate(); void cleanupSelectedImage(flow.image); setConfirmations({}); dispatch({ type: "RESET", operationId: id }); };
+  const startGuidance = (): void => { if (!flow.analysis || !flow.assessment || !measurement || !isComplete(confirmations) || guidanceBusy) return; const id = invalidate(); const controller = new AbortController(); guidanceAbort.current = controller; setGuidanceBusy(true); void requestRepairGuidance({ analysis: flow.analysis, confirmations: confirmations as RepairConfirmations, measurement }, controller.signal).then((value) => { if (mounted.current && operation.current === id) setGuidance(value); }).catch(() => { if (mounted.current && operation.current === id) setError("Guidance could not be loaded. Retry the assessment."); }).finally(() => { if (mounted.current && operation.current === id) setGuidanceBusy(false); }); };
+  const cancelGuidance = (): void => { guidanceAbort.current?.abort(); invalidate(); setGuidanceBusy(false); };
 
   if (flow.screen === "camera") return <SafeAreaProvider><CameraCaptureScreen onBack={() => dispatch({ type: "CANCEL", operationId: invalidate() })} onCapture={(image) => void prepare(image)} onUnavailable={() => { setPermission("unavailable"); dispatch({ type: "CANCEL", operationId: invalidate() }); }} /></SafeAreaProvider>;
-  if (measurementOpen && flow.image) return <SafeAreaProvider><Screen><AssistedMeasurementScreen image={flow.image} onBack={() => setMeasurementOpen(false)} onRetake={replace} onSuggestion={setMeasurementSuggestion} /></Screen></SafeAreaProvider>;
+  if (measurementOpen && flow.image) return <SafeAreaProvider><Screen><AssistedMeasurementScreen image={flow.image} onBack={() => setMeasurementOpen(false)} onRetake={replace} onMeasured={(result) => { setMeasurement(result); setMeasurementSuggestion(result.suggested_nominal_size); }} /></Screen></SafeAreaProvider>;
+  if (guidance) return <SafeAreaProvider><Screen><RepairGuidanceScreen guidance={guidance} onBack={() => setGuidance(null)} /></Screen></SafeAreaProvider>;
   return <SafeAreaProvider><Screen><StatusBar style="dark" />
     {flow.screen === "home" && <Home healthState={healthState} onStart={() => dispatch({ type: "START" })} />}
     {flow.screen === "guidance" && <Guidance onContinue={() => dispatch({ type: "SHOW_SOURCE" })} />}
@@ -156,7 +168,7 @@ export default function App(): React.JSX.Element {
     {flow.screen === "confirmations" && <RepairConfirmationScreen value={confirmations} suggestedSize={measurementSuggestion} onChange={setConfirmations} onSubmit={() => startAssessment(false)} />}
     {flow.screen === "assessing" && <AssessmentLoading onCancel={cancelAssessment} />}
     {flow.screen === "assessment_error" && <AssessmentError onRetry={() => startAssessment(true)} onRestart={restart} />}
-    {flow.screen === "assessment" && flow.assessment && <RepairAssessmentScreen assessment={flow.assessment} onRestart={restart} />}
+    {flow.screen === "assessment" && flow.assessment && <RepairAssessmentScreen assessment={flow.assessment} onRestart={restart} onGuidance={startGuidance} onCancelGuidance={cancelGuidance} guidanceBusy={guidanceBusy} blocked={guidanceBlock(flow.analysis, flow.assessment, measurement, confirmations)} />}
   </Screen></SafeAreaProvider>;
 }
 

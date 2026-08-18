@@ -142,3 +142,22 @@ class MeasurementResponse(BaseModel):
     gap_range_status: GapRangeStatus
     limitations: list[str]
     retake_reasons: list[str]
+
+
+class RepairGuidanceRequest(BaseModel):
+    analysis: AnalysisResponse
+    confirmations: RepairConfirmations
+    measurement: MeasurementResponse
+
+
+class RepairGuidanceResponse(BaseModel):
+    decision: RepairDecision
+    repair_method_id: Literal["two_slip_coupling_section_replacement"] | None
+    reasons: list[str]
+    preparation_checklist: list[str]
+    materials_tools_checklist: list[str]
+    steps: list[str]
+    stop_conditions: list[str]
+    post_repair_verification: list[str]
+    limitations: list[str]
+    source_links: list[str]

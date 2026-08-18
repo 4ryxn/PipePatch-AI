@@ -102,6 +102,10 @@ The calibration endpoint detects only ArUco `DICT_4X4_50`, marker ID `23`, and r
 
 Phase 4B uses user-drawn image lines with that server-verified scale to estimate visible outside diameter and cut gap. It does not prove PVC, Schedule 40, exact nominal size, or repair eligibility; any size suggestion is advisory and must still be explicitly confirmed.
 
+## Repair guidance
+
+The app can show deterministic, high-level guidance only for the single fully confirmed outdoor Schedule-40 PVC clean-cut case, after a compatible measured gap and matching visible-diameter suggestion. It never provides a universal cure time: product labels, fitting instructions, ventilation, PPE, no ignition sources, local requirements, and full labelled cure before pressure testing take priority. See [manufacturer sources](docs/repair-guidance-sources.md).
+
 Regenerate the tracked SVG after changing the card generator:
 
 ```sh
